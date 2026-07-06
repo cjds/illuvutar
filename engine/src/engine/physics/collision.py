@@ -55,7 +55,7 @@ def resolve_conflicts(
             p = phys.collision_priority if phys else 0
             return (p, intent.entity_id)
 
-        blocking.sort(key=priority, reverse=True)
+        blocking.sort(key=lambda intent: (-priority(intent)[0], priority(intent)[1]))
         results[blocking[0].entity_id] = True
         for loser in blocking[1:]:
             results[loser.entity_id] = False

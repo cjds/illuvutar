@@ -1,8 +1,6 @@
 from engine.entities.store import EntityStore
 from engine.entities.components import Tags
 
-PASSABILITY_ORDER = {"open": 0, "slow": 1, "conditional": 2, "blocked": 3}
-
 
 class PassabilityMap:
     def __init__(self, tilemap: list[list[str]], rules: dict[str, str]):

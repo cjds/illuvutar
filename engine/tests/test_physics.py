@@ -43,6 +43,17 @@ def test_resolve_conflict_higher_priority_wins(simple_map, store):
     assert results["p1"] is True   # p1 has priority 10
     assert results["p2"] is False  # p2 has priority 1
 
+def test_resolve_conflict_equal_priority_breaks_tie_by_entity_id(simple_map, store):
+    store.create("e1", "humanoid", [Position(0, 0), PhysicsComponent(blocking=True, collision_priority=5)])
+    store.create("e2", "humanoid", [Position(1, 0), PhysicsComponent(blocking=True, collision_priority=5)])
+    intents = [
+        MoveIntent("e1", 0, 0, 2, 2, is_god=False),
+        MoveIntent("e2", 1, 0, 2, 2, is_god=False),
+    ]
+    results = resolve_conflicts(intents, store, simple_map)
+    assert results["e1"] is True   # e1 wins due to alphabetical order
+    assert results["e2"] is False
+
 def test_adjacent_entities(store):
     store.create("near", "object", [Position(1, 0)])
     store.create("far", "object", [Position(9, 9)])
