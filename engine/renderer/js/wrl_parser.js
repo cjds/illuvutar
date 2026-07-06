@@ -26,7 +26,7 @@ export function parseFrame(text) {
 
     if (section === 'tiles' && key === 'rows') { current.rows = []; continue; }
     if (section === 'tiles' && current.rows !== undefined && rawVal.startsWith('"')) {
-      current.rows.push(rawVal.slice(1, -2)); continue;
+      current.rows.push(rawVal.slice(1, -1)); continue;
     }
     if (!current) continue;
     if (rawVal.startsWith('"')) { current[key] = rawVal.slice(1, -1); }

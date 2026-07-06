@@ -55,10 +55,11 @@ def create_app(
             q = broadcaster.subscribe()
             try:
                 while True:
-                    frame_toml = await asyncio.wait_for(q.get(), timeout=30.0)
-                    yield f"data: {frame_toml}\n\n"
-            except asyncio.TimeoutError:
-                yield "data: ping\n\n"
+                    try:
+                        frame_toml = await asyncio.wait_for(q.get(), timeout=30.0)
+                        yield f"data: {frame_toml}\n\n"
+                    except asyncio.TimeoutError:
+                        yield "data: ping\n\n"
             except asyncio.CancelledError:
                 pass
             finally:
