@@ -4,11 +4,11 @@ from illuvutar.agents.god import GodAgent
 from illuvutar.agents.tools import AgentTools
 
 @pytest.fixture
-def mock_tools():
+def mock_tools(monkeypatch):
     tools = MagicMock(spec=AgentTools)
     tools.read_file.return_value = "world_name: Test"
     tools.query_palette.return_value = "- grass_plain (layer=ground)"
-    AgentTools.definitions = staticmethod(lambda: [])
+    monkeypatch.setattr(AgentTools, "definitions", staticmethod(lambda: []))
     return tools
 
 def _make_ollama_response(content, tool_calls=None):
