@@ -21,6 +21,7 @@ def create_app(
     world_id: str,
     width: int,
     height: int,
+    max_frames: int | None = None,
 ) -> FastAPI:
     app = FastAPI()
     broadcaster = SSEBroadcaster()
@@ -53,11 +54,13 @@ def create_app(
     async def frames():
         async def event_stream():
             q = broadcaster.subscribe()
+            sent = 0
             try:
-                while True:
+                while max_frames is None or sent < max_frames:
                     try:
-                        frame_toml = await asyncio.wait_for(q.get(), timeout=30.0)
+                        frame_toml = await asyncio.wait_for(q.get(), timeout=1.0)
                         yield f"data: {frame_toml}\n\n"
+                        sent += 1
                     except asyncio.TimeoutError:
                         yield "data: ping\n\n"
             except asyncio.CancelledError:
