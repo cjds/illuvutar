@@ -1,0 +1,79 @@
+import asyncio
+from pathlib import Path
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, StreamingResponse
+from engine.entities.store import EntityStore
+from engine.physics.passability import PassabilityMap
+from engine.server.sse import SSEBroadcaster
+from engine.server.command import parse_command
+from engine.tick import TickLoop
+from engine.systems.input import Command
+from engine.wrl.serializer import serialize
+
+RENDERER_DIR = Path(__file__).parent.parent.parent.parent / "renderer"
+
+
+def create_app(
+    store: EntityStore,
+    passability: PassabilityMap,
+    palette: dict[int, str],
+    tilemap_data: list[dict],
+    world_id: str,
+    width: int,
+    height: int,
+) -> FastAPI:
+    app = FastAPI()
+    broadcaster = SSEBroadcaster()
+
+    async def on_frame(frame):
+        await broadcaster.broadcast(serialize(frame))
+
+    tick_loop = TickLoop(
+        store=store, passability=passability, palette=palette,
+        tilemap_data=tilemap_data, world_id=world_id,
+        width=width, height=height, frame_callback=on_frame,
+    )
+
+    @app.on_event("startup")
+    async def startup():
+        asyncio.create_task(tick_loop.start())
+
+    @app.on_event("shutdown")
+    async def shutdown():
+        tick_loop.stop()
+
+    @app.get("/", response_class=HTMLResponse)
+    async def root():
+        html_path = RENDERER_DIR / "index.html"
+        if html_path.exists():
+            return html_path.read_text()
+        return "<html><body><h1>Renderer not found</h1></body></html>"
+
+    @app.get("/frames")
+    async def frames():
+        async def event_stream():
+            q = broadcaster.subscribe()
+            try:
+                while True:
+                    frame_toml = await asyncio.wait_for(q.get(), timeout=30.0)
+                    yield f"data: {frame_toml}\n\n"
+            except asyncio.TimeoutError:
+                yield "data: ping\n\n"
+            except asyncio.CancelledError:
+                pass
+            finally:
+                broadcaster.unsubscribe(q)
+
+        return StreamingResponse(event_stream(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    @app.post("/command")
+    async def command(request: Request):
+        body = await request.body()
+        raw = parse_command(body.decode())
+        if raw is None:
+            return Response(content="Invalid command", status_code=400)
+        tick_loop.enqueue_command(Command(entity_id=raw.agent_id, action=raw.action, params=raw.params))
+        return {"ok": True}
+
+    return app
