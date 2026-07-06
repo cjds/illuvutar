@@ -33,6 +33,6 @@ action = "set_time"
 
 def test_frames_endpoint_exists(client):
     # We can't easily test SSE in TestClient, but we verify the route exists
-    with client.stream("GET", "/frames") as r:
+    with client.stream("GET", "/frames", timeout=5) as r:
         assert r.status_code == 200
         assert "text/event-stream" in r.headers["content-type"]
