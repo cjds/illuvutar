@@ -73,7 +73,7 @@ illuvutar/
 - Create: `tests/test_indexer.py`
 
 **Interfaces:**
-- Produces: `Tile(id, sprite_path, layer, tags, adjacent)` dataclass; `index_palette(palette_dir) -> list[Tile]`; writes `palette.yaml` to `world_dir`
+- Produces: `Tile(id, sprite_path, layer, tags, adjacent)` dataclass; `index_palette(palette_dir) -> list[Tile]` (no write operation — WorldStateWriter in Task 3 is responsible for writing files)
 
 - [ ] **Step 1: Create pyproject.toml**
 

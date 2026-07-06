@@ -19,7 +19,7 @@ def index_palette(palette_dir: Path | str) -> list[Tile]:
         raise FileNotFoundError(f"No palette_meta.yaml found in {palette_dir}")
 
     with open(meta_file) as f:
-        meta = yaml.safe_load(f)
+        meta = yaml.safe_load(f) or {}
 
     tiles = []
     for entry in meta.get("tiles", []):
