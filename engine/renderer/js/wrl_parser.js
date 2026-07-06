@@ -19,6 +19,16 @@ export function parseFrame(text) {
     if (line === '[[layer.ui.tooltip]]') { const t = {}; frame.ui.tooltips.push(t); current = t; section = 'tooltip'; continue; }
     if (line === '[[layer.ui.hud]]') { const h = {}; frame.ui.huds.push(h); current = h; section = 'hud'; continue; }
 
+    // Capture bare tile-row strings: '  "0-3:1,4:2",'
+    if (section === 'tiles' && current && Array.isArray(current.rows)) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('"')) {
+            const val = trimmed.endsWith(',') ? trimmed.slice(0, -1) : trimmed;
+            current.rows.push(val.slice(1, -1));
+            continue;
+        }
+    }
+
     const eqIdx = line.indexOf('=');
     if (eqIdx === -1) continue;
     const key = line.slice(0, eqIdx).trim();

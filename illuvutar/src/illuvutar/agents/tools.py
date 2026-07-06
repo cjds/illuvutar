@@ -1,5 +1,6 @@
 """AgentTools: tool implementations for the God Agent."""
 import json
+import os
 from pathlib import Path
 
 import yaml
@@ -27,12 +28,19 @@ class AgentTools:
         self._specialist_results: list[str] = []
 
     def read_file(self, name: str) -> str:
+        world_dir = str(self.writer.world_dir.resolve())
+        palette_dir = str(self.palette_dir.resolve())
+        full = os.path.realpath(os.path.join(world_dir, name))
+        if not (full.startswith(world_dir) or full.startswith(palette_dir)):
+            return f"error: path '{name}' is outside world directory"
         content = self.writer.read(name)
         if content is None:
             return f"File '{name}' does not exist yet."
         return yaml.dump(content) if isinstance(content, dict) else json.dumps(content)
 
     def write_world_state(self, name: str, content_json: str) -> str:
+        if not name or '/' in name or '\\' in name or '..' in name:
+            return f"error: invalid name '{name}'"
         try:
             content = json.loads(content_json)
         except json.JSONDecodeError:

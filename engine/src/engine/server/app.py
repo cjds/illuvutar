@@ -59,7 +59,8 @@ def create_app(
                 while max_frames is None or sent < max_frames:
                     try:
                         frame_toml = await asyncio.wait_for(q.get(), timeout=1.0)
-                        yield f"data: {frame_toml}\n\n"
+                        sse_lines = "\n".join(f"data: {line}" for line in frame_toml.splitlines())
+                        yield f"{sse_lines}\n\n"
                         sent += 1
                     except asyncio.TimeoutError:
                         yield "data: ping\n\n"
