@@ -2,7 +2,7 @@ export function renderUI(uiLayer, frame) {
   // Tooltips (existing)
   let html = '';
   for (const tt of (frame.ui?.tooltips || [])) {
-    html += `<div class="tooltip" style="left:${tt.x || 0}px;top:${tt.y || 0}px">${tt.text}</div>`;
+    html += `<div style="position:absolute;left:${tt.x || 0}px;top:${tt.y || 0}px;background:#222c;padding:4px 8px;border-radius:4px;color:#fff;font-family:monospace;font-size:12px;pointer-events:none">${tt.entity_id ? tt.entity_id + ': ' : ''}${tt.text || ''}</div>`;
   }
   uiLayer.innerHTML = html;
 
@@ -13,7 +13,9 @@ export function renderUI(uiLayer, frame) {
   for (const thought of (frame.thoughts || [])) {
     const div = document.createElement('div');
     div.className = 'thought-entry';
-    div.innerHTML = `<span class="thought-who">${thought.entity_id}</span>: ${thought.text}`;
+    const who = thought.entity_id || 'unknown';
+    const msg = thought.text || '';
+    div.innerHTML = `<span class="thought-who">${who}</span>: ${msg}`;
     thoughtLog.appendChild(div);
     // Keep last 20 thoughts
     while (thoughtLog.children.length > 20) {
