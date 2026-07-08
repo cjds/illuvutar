@@ -1,0 +1,6 @@
+- era: ancient
+  event: A keep was built here, then fell silent.
+  region_id: 2
+- era: recent
+  event: Three strangers arrived at the crossroads on the same day.
+  region_id: 3

@@ -1,0 +1,25 @@
+regions:
+- atmosphere: dark canopy, birdsong
+  biome: forest
+  centroid_x: 3.5
+  centroid_y: 4.5
+  id: 0
+  name: The Verdant Wood
+- atmosphere: still water, reflections
+  biome: water
+  centroid_x: 17
+  centroid_y: 14
+  id: 1
+  name: The Mirror Lake
+- atmosphere: crumbling stone, echoes
+  biome: ruins
+  centroid_x: 11
+  centroid_y: 7
+  id: 2
+  name: The Ruined Keep
+- atmosphere: wide sky, warm wind
+  biome: grassland
+  centroid_x: 12
+  centroid_y: 14
+  id: 3
+  name: The Open Plains

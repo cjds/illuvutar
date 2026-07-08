@@ -1,0 +1,18 @@
+- behavior: explore and discover, drawn to ruins and ancient places
+  id: wanderer
+  kind: humanoid
+  name: Elara the Wanderer
+  x: 10
+  y: 10
+- behavior: study the ruins, record observations, seek lost knowledge
+  id: scholar
+  kind: scholar
+  name: Doran the Scholar
+  x: 11
+  y: 7
+- behavior: protect the path, watch for strangers, guard the crossing
+  id: guardian
+  kind: guardian
+  name: Kael the Guardian
+  x: 8
+  y: 10

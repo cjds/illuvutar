@@ -1,0 +1,4 @@
+generation_log:
+- action: created
+  agent: demo_script
+  detail: demo world

@@ -1,0 +1,128 @@
+palette_used: /home/cjds/dev/illuvutar/palettes/verdant
+tiles:
+- adjacent:
+  - grass_plain
+  - grass_flowers
+  - dirt_path
+  - forest_floor
+  - sand_shore
+  id: grass_plain
+  layer: ground
+  tags:
+  - grass
+  - open
+  - walkable
+- adjacent:
+  - grass_plain
+  - grass_flowers
+  - dirt_path
+  - forest_floor
+  id: grass_flowers
+  layer: ground
+  tags:
+  - grass
+  - open
+  - walkable
+  - scenic
+- adjacent:
+  - dirt_path
+  - grass_plain
+  - grass_flowers
+  - stone_floor
+  - sand_shore
+  id: dirt_path
+  layer: ground
+  tags:
+  - dirt
+  - open
+  - walkable
+  - path
+- adjacent:
+  - water_deep
+  - water_shallow
+  id: water_deep
+  layer: ground
+  tags:
+  - water
+  - impassable
+- adjacent:
+  - water_shallow
+  - water_deep
+  - sand_shore
+  - grass_plain
+  id: water_shallow
+  layer: ground
+  tags:
+  - water
+  - slow
+  - wading
+- adjacent:
+  - forest_floor
+  - forest_canopy
+  - grass_plain
+  - dirt_path
+  id: forest_floor
+  layer: ground
+  tags:
+  - forest
+  - open
+  - walkable
+  - dim
+- adjacent:
+  - forest_canopy
+  - forest_floor
+  id: forest_canopy
+  layer: ground
+  tags:
+  - forest
+  - blocked
+  - shelter
+- adjacent:
+  - stone_floor
+  - stone_wall
+  - dirt_path
+  id: stone_floor
+  layer: ground
+  tags:
+  - stone
+  - open
+  - walkable
+  - hard
+- adjacent:
+  - stone_wall
+  - stone_floor
+  id: stone_wall
+  layer: ground
+  tags:
+  - stone
+  - blocked
+  - structure
+- adjacent:
+  - sand_shore
+  - grass_plain
+  - water_shallow
+  - dirt_path
+  id: sand_shore
+  layer: ground
+  tags:
+  - sand
+  - open
+  - walkable
+  - coastal
+- adjacent:
+  - mountain_peak
+  - stone_floor
+  - grass_plain
+  id: mountain_peak
+  layer: ground
+  tags:
+  - mountain
+  - blocked
+  - high
+- adjacent:
+  - void_tile
+  id: void_tile
+  layer: ground
+  tags:
+  - void
+  - impassable

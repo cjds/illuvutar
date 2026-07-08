@@ -1,0 +1,6 @@
+- description: Travellers with no fixed home.
+  disposition: neutral
+  id: wanderers
+  name: The Wayfarers
+  region_ids:
+  - 3
