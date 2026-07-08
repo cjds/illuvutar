@@ -1,7 +1,7 @@
 // Minimal TOML-like WRL parser for browser use.
 // Handles the specific structure the engine emits — not a full TOML parser.
 export function parseFrame(text) {
-  const frame = { palette: {}, entities: [], effects: { lights: [], particles: [], overlays: [] }, ui: { tooltips: [], huds: [] } };
+  const frame = { palette: {}, entities: [], effects: { lights: [], particles: [], overlays: [] }, ui: { tooltips: [], huds: [] }, thoughts: [] };
   let current = null;
   let section = null;
 
@@ -18,6 +18,7 @@ export function parseFrame(text) {
     if (line === '[[layer.effects.overlay]]') { const o = {}; frame.effects.overlays.push(o); current = o; section = 'overlay'; continue; }
     if (line === '[[layer.ui.tooltip]]') { const t = {}; frame.ui.tooltips.push(t); current = t; section = 'tooltip'; continue; }
     if (line === '[[layer.ui.hud]]') { const h = {}; frame.ui.huds.push(h); current = h; section = 'hud'; continue; }
+    if (line === '[[layer.thoughts.thought]]') { const t = {}; frame.thoughts.push(t); current = t; section = 'thought'; continue; }
 
     // Capture bare tile-row strings: '  "0-3:1,4:2",'
     if (section === 'tiles' && current && Array.isArray(current.rows)) {
