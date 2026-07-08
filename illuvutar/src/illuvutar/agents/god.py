@@ -1,6 +1,7 @@
 """GodAgent: the primary world-generation agent that orchestrates the 3-phase workflow."""
 import ollama
 from illuvutar.agents.tools import AgentTools
+from illuvutar.agents.memory import GodMemory
 
 GOD_SYSTEM_PROMPT = """You are the God of this world — an ancient, creative intelligence tasked with generating a living 2D world from a palette of tiles.
 
@@ -23,15 +24,24 @@ You speak with gravitas and creativity. You are deliberate. Each action serves t
 
 
 class GodAgent:
-    def __init__(self, model: str, tools: AgentTools):
+    def __init__(self, model: str, tools: AgentTools, memory: GodMemory | None = None):
         self.model = model
         self.tools = tools
-        self.messages: list[dict] = [{"role": "system", "content": GOD_SYSTEM_PROMPT}]
+        self._memory = memory
+        # Load prior history if memory provided, else start fresh
+        if memory:
+            prior = memory.load()
+            self.messages = prior if prior else [{"role": "system", "content": GOD_SYSTEM_PROMPT}]
+        else:
+            self.messages = [{"role": "system", "content": GOD_SYSTEM_PROMPT}]
         self._done = False
 
     def chat(self, human_message: str) -> str:
         self.messages.append({"role": "user", "content": human_message})
-        return self._run_loop()
+        response = self._run_loop()
+        if self._memory:
+            self._memory.save(self.messages)
+        return response
 
     def is_done(self) -> bool:
         return self._done

@@ -6,6 +6,7 @@ from illuvutar.palette.rag import PaletteRAG
 from illuvutar.world_state.writer import WorldStateWriter
 from illuvutar.agents.tools import AgentTools
 from illuvutar.agents.god import GodAgent
+from illuvutar.agents.memory import GodMemory
 from illuvutar.tui.app import GodChatApp
 
 
@@ -32,7 +33,13 @@ def create_world(palette, world, model):
 
     writer = WorldStateWriter(world_dir)
     tools = AgentTools(writer=writer, rag=rag, tiles=tiles, palette_dir=palette_dir)
-    god = GodAgent(model=model, tools=tools)
+
+    # God memory persists at world_dir/.god_memory.json
+    memory = GodMemory(world_dir / ".god_memory.json")
+    god = GodAgent(model=model, tools=tools, memory=memory)
+
+    if memory.load():
+        click.echo("Resuming previous god session from memory.")
 
     app = GodChatApp(god_agent=god, writer=writer)
     app.run()

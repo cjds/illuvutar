@@ -48,6 +48,10 @@ class GodChatApp(App):
 
     def on_mount(self) -> None:
         log = self.query_one("#chat-log", RichLog)
+        # Show memory status if resuming a prior session
+        prior_count = len([m for m in self.god_agent.messages if m.get("role") != "system"])
+        if prior_count > 0:
+            log.write(f"[bold green]Resuming previous session ({prior_count} messages in memory).[/bold green]")
         log.write("[bold yellow]God:[/bold yellow] I am awakened. What palette have you prepared for me?")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:

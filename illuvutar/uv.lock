@@ -778,6 +778,7 @@ source = { editable = "." }
 dependencies = [
     { name = "chromadb" },
     { name = "click" },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "ollama" },
     { name = "pyyaml" },
@@ -796,6 +797,7 @@ dev = [
 requires-dist = [
     { name = "chromadb", specifier = ">=0.5" },
     { name = "click", specifier = ">=8.1" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "ollama", specifier = ">=0.3" },
     { name = "pyyaml", specifier = ">=6.0" },
