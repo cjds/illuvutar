@@ -33,6 +33,7 @@ def main() -> None:
         width=data.width,
         height=data.height,
         sprite_dir=data.sprite_dir,
+        ai_model=args.ai_model,
     )
     print(f"Engine ready. Open http://{args.host}:{args.port} in your browser.")
     uvicorn.run(app, host=args.host, port=args.port)

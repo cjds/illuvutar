@@ -1,4 +1,5 @@
 """WRL serializer: converts a WRLFrame to TOML-format WRL text."""
+import json
 from engine.wrl.schema import WRLFrame
 
 
@@ -67,7 +68,7 @@ def serialize(frame: WRLFrame) -> str:
             "[[layer.thoughts.thought]]",
             f'entity_id = "{thought.entity_id}"',
             f"tick = {thought.tick}",
-            f'text = "{thought.text.replace(chr(34), chr(39))}"',
+            f'text = "{json.dumps(thought.text)[1:-1]}"',
             "",
         ]
 

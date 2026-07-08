@@ -113,6 +113,13 @@ def load_world(world_dir: Path | str) -> WorldData:
     sprite_dir: Path | None = None
     if palette_used:
         candidate = Path(palette_used)
+        if not candidate.is_absolute():
+            # Try relative to CWD, then relative to world_dir parent chain
+            for base in [Path.cwd(), world_dir.parent, world_dir.parent.parent]:
+                resolved = base / candidate
+                if resolved.is_dir():
+                    candidate = resolved
+                    break
         if candidate.is_dir():
             sprite_dir = candidate
 

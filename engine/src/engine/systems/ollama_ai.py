@@ -43,11 +43,10 @@ class OllamaAISystem:
         self._pending: list[asyncio.Task] = []
         self._results: list[WRLThought | Command] = []
         self._lock = asyncio.Lock()
+        self._whispers: dict[str, list[str]] = {}
 
     def inject_whisper(self, entity_id: str, text: str) -> None:
         """Queue a whisper to be included in entity's next think context."""
-        if not hasattr(self, "_whispers"):
-            self._whispers: dict[str, list[str]] = {}
         self._whispers.setdefault(entity_id, []).append(text)
 
     async def schedule_thinks(self, tick: int) -> None:
@@ -102,7 +101,7 @@ class OllamaAISystem:
         nearby_str = ", ".join(nearby_names) if nearby_names else "nobody"
 
         # Pull pending whispers for this entity
-        pending_whispers = getattr(self, "_whispers", {}).pop(entity_id, [])
+        pending_whispers = self._whispers.pop(entity_id, [])
         whisper_ctx = ("\nSomeone whispers to you: " + " | ".join(pending_whispers)) if pending_whispers else ""
 
         prompt = _THINK_PROMPT.format(
