@@ -62,4 +62,13 @@ def serialize(frame: WRLFrame) -> str:
         lines += ["[[layer.ui.hud]]", f'kind = "{hud.kind}"',
                   f"visible = {str(hud.visible).lower()}", ""]
 
+    for thought in frame.thoughts:
+        lines += [
+            "[[layer.thoughts.thought]]",
+            f'entity_id = "{thought.entity_id}"',
+            f"tick = {thought.tick}",
+            f'text = "{thought.text.replace(chr(34), chr(39))}"',
+            "",
+        ]
+
     return "\n".join(lines)

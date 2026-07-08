@@ -8,8 +8,9 @@ from engine.systems.environment import EnvironmentSystem
 from engine.systems.interaction import InteractionSystem
 from engine.systems.inventory import InventorySystem
 from engine.systems.ai_decision import AIDecisionSystem
+from engine.systems.ollama_ai import OllamaAISystem
 from engine.systems.render_output import RenderOutputSystem
-from engine.wrl.schema import WRLFrame
+from engine.wrl.schema import WRLFrame, WRLThought
 from typing import Callable, Awaitable
 
 
@@ -25,6 +26,7 @@ class TickLoop:
         height: int,
         frame_callback: Callable[[WRLFrame], Awaitable[None]],
         tick_interval: float = 0.1,
+        ai_model: str = "llama3.2",
     ):
         self._store = store
         self._tick_interval = tick_interval
@@ -41,6 +43,8 @@ class TickLoop:
         self._inventory = InventorySystem(store)
         self._ai = AIDecisionSystem(store)
         self._render = RenderOutputSystem(store, palette, tilemap_data, world_id, width, height)
+        self._ollama_ai = OllamaAISystem(store, passability, model=ai_model, think_interval=50)
+        self._pending_thoughts: list[WRLThought] = []
 
     def enqueue_command(self, command: Command) -> None:
         self._command_queue.append(command)
@@ -66,6 +70,20 @@ class TickLoop:
             self._store.remove(eid)
         self._environment.run(t)
 
+        # Schedule entity AI thinks (non-blocking, runs in background)
+        await self._ollama_ai.schedule_thinks(t)
+        # Drain completed thoughts/commands
+        ai_results = await self._ollama_ai.drain_results()
+        for item in ai_results:
+            if isinstance(item, WRLThought):
+                self._pending_thoughts.append(item)
+            else:
+                # It's a Command — inject into input system
+                self._command_queue.append(item)
+
         frame = self._render.run(t)
+        # Attach pending thoughts to frame
+        frame.thoughts = list(self._pending_thoughts)
+        self._pending_thoughts.clear()
         await self._frame_callback(frame)
         self._tick += 1

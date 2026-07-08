@@ -2,7 +2,7 @@
 import tomlkit
 from engine.wrl.schema import (
     WRLFrame, WRLTileLayer, WRLEntity, WRLEffectLayer,
-    WRLLight, WRLParticle, WRLOverlay, WRLUILayer, WRLTooltip, WRLHud,
+    WRLLight, WRLParticle, WRLOverlay, WRLUILayer, WRLTooltip, WRLHud, WRLThought,
 )
 
 
@@ -72,5 +72,12 @@ def parse(toml_str: str) -> WRLFrame:
     for hud in layer.get("ui", {}).get("hud", []):
         ui.huds.append(WRLHud(kind=str(hud["kind"]), visible=bool(hud.get("visible", True))))
     frame.ui = ui
+
+    for thought in layer.get("thoughts", {}).get("thought", []):
+        frame.thoughts.append(WRLThought(
+            entity_id=str(thought.get("entity_id", "")),
+            text=str(thought.get("text", "")),
+            tick=int(thought.get("tick", 0)),
+        ))
 
     return frame

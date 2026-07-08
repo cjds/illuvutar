@@ -60,6 +60,15 @@ class WRLOverlay:
 
 
 @dataclass
+class WRLThought:
+    """An entity's visible thought — for introspection and conversation display."""
+
+    entity_id: str
+    text: str
+    tick: int = 0
+
+
+@dataclass
 class WRLEffectLayer:
     """Represents effects layer containing lights, particles, and overlays."""
 
@@ -108,5 +117,6 @@ class WRLFrame:
     entities: list[WRLEntity] = field(default_factory=list)
     effects: WRLEffectLayer = field(default_factory=WRLEffectLayer)
     ui: WRLUILayer = field(default_factory=WRLUILayer)
+    thoughts: list[WRLThought] = field(default_factory=list)
     for_agent: str | None = None
     visibility_radius: int | None = None
