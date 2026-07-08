@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from engine.entities.store import EntityStore
 from engine.physics.passability import PassabilityMap
 from engine.server.sse import SSEBroadcaster
@@ -22,6 +23,7 @@ def create_app(
     width: int,
     height: int,
     max_frames: int | None = None,
+    sprite_dir: Path | None = None,
 ) -> FastAPI:
     app = FastAPI()
     broadcaster = SSEBroadcaster()
@@ -49,6 +51,16 @@ def create_app(
         if html_path.exists():
             return html_path.read_text()
         return "<html><body><h1>Renderer not found</h1></body></html>"
+
+    js_dir = RENDERER_DIR / "js"
+    if js_dir.is_dir():
+        app.mount("/js", StaticFiles(directory=js_dir), name="js")
+
+    sprites_dir = RENDERER_DIR / "sprites"
+    if sprites_dir.is_dir():
+        app.mount("/sprites", StaticFiles(directory=sprites_dir), name="sprites")
+    elif sprite_dir and sprite_dir.is_dir():
+        app.mount("/sprites", StaticFiles(directory=str(sprite_dir)), name="sprites")
 
     @app.get("/frames")
     async def frames():
