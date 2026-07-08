@@ -44,6 +44,12 @@ class OllamaAISystem:
         self._results: list[WRLThought | Command] = []
         self._lock = asyncio.Lock()
 
+    def inject_whisper(self, entity_id: str, text: str) -> None:
+        """Queue a whisper to be included in entity's next think context."""
+        if not hasattr(self, "_whispers"):
+            self._whispers: dict[str, list[str]] = {}
+        self._whispers.setdefault(entity_id, []).append(text)
+
     async def schedule_thinks(self, tick: int) -> None:
         """Schedule a background think for each entity due for their next cycle."""
         for entity_id in self._store.all_ids():
@@ -95,11 +101,15 @@ class OllamaAISystem:
             nearby_names.append(nlabel.name if nlabel else nid)
         nearby_str = ", ".join(nearby_names) if nearby_names else "nobody"
 
+        # Pull pending whispers for this entity
+        pending_whispers = getattr(self, "_whispers", {}).pop(entity_id, [])
+        whisper_ctx = ("\nSomeone whispers to you: " + " | ".join(pending_whispers)) if pending_whispers else ""
+
         prompt = _THINK_PROMPT.format(
             name=name, kind=kind, goal=goal,
             x=x, y=y, nearby=nearby_str,
             context="A 2D world of forest, ruins, and open plain.",
-        )
+        ) + whisper_ctx
 
         try:
             client = ollama.AsyncClient()

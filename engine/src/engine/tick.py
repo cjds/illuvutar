@@ -45,9 +45,17 @@ class TickLoop:
         self._render = RenderOutputSystem(store, palette, tilemap_data, world_id, width, height)
         self._ollama_ai = OllamaAISystem(store, passability, model=ai_model, think_interval=50)
         self._pending_thoughts: list[WRLThought] = []
+        self._whispers: dict[str, list[str]] = {}
+        self._thought_log: list[dict] = []
 
     def enqueue_command(self, command: Command) -> None:
         self._command_queue.append(command)
+
+    def inject_whisper(self, entity_id: str, text: str) -> None:
+        self._whispers.setdefault(entity_id, []).append(text)
+
+    def recent_thoughts(self) -> list[dict]:
+        return list(self._thought_log[-50:])
 
     def stop(self) -> None:
         self._running = False
@@ -70,6 +78,12 @@ class TickLoop:
             self._store.remove(eid)
         self._environment.run(t)
 
+        # Drain pending whispers into OllamaAISystem before scheduling thinks
+        for eid, msgs in list(self._whispers.items()):
+            for msg in msgs:
+                self._ollama_ai.inject_whisper(eid, msg)
+        self._whispers.clear()
+
         # Schedule entity AI thinks (non-blocking, runs in background)
         await self._ollama_ai.schedule_thinks(t)
         # Drain completed thoughts/commands
@@ -77,6 +91,9 @@ class TickLoop:
         for item in ai_results:
             if isinstance(item, WRLThought):
                 self._pending_thoughts.append(item)
+                self._thought_log.append({"entity_id": item.entity_id, "text": item.text, "tick": item.tick})
+                if len(self._thought_log) > 200:
+                    self._thought_log = self._thought_log[-100:]
             else:
                 # It's a Command — inject into input system
                 self._command_queue.append(item)

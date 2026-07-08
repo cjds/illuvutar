@@ -93,4 +93,17 @@ def create_app(
         tick_loop.enqueue_command(Command(entity_id=raw.agent_id, action=raw.action, params=raw.params))
         return {"ok": True}
 
+    @app.post("/entity/{entity_id}/say")
+    async def entity_say(entity_id: str, request: Request):
+        body = await request.json()
+        text = body.get("text", "")
+        if not text:
+            return Response(content="Missing text", status_code=400)
+        tick_loop.inject_whisper(entity_id, text)
+        return {"ok": True, "entity_id": entity_id}
+
+    @app.get("/thoughts")
+    async def get_thoughts():
+        return tick_loop.recent_thoughts()
+
     return app

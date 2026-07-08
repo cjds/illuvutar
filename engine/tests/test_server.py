@@ -34,6 +34,23 @@ action = "set_time"
     assert response.status_code == 200
 
 
+def test_entity_say_injects_whisper(client):
+    """POST /entity/<id>/say returns 200 and accepts text."""
+    response = client.post(
+        "/entity/wanderer/say",
+        json={"text": "Hello, wanderer. What do you seek?"},
+    )
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_thoughts_endpoint_returns_list(client):
+    """GET /thoughts returns a JSON list."""
+    response = client.get("/thoughts")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
 def test_frames_endpoint_exists():
     # max_frames=1 makes the stream finite so TestClient can complete the request
     with TestClient(_make_app(max_frames=1)) as c:

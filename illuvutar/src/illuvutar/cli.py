@@ -19,7 +19,8 @@ def main():
 @click.option("--palette", required=True, type=click.Path(exists=True), help="Path to palette directory")
 @click.option("--world", default="world", help="Output world directory")
 @click.option("--model", default="llama3.2", help="Ollama model name")
-def create_world(palette, world, model):
+@click.option("--engine-url", default="", help="Running engine URL for entity whispers, e.g. http://localhost:8080")
+def create_world(palette, world, model, engine_url):
     """Start the god agent to generate a new world."""
     palette_dir = Path(palette)
     world_dir = Path(world)
@@ -41,5 +42,5 @@ def create_world(palette, world, model):
     if memory.load():
         click.echo("Resuming previous god session from memory.")
 
-    app = GodChatApp(god_agent=god, writer=writer)
+    app = GodChatApp(god_agent=god, writer=writer, engine_url=engine_url)
     app.run()
