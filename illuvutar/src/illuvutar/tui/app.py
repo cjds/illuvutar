@@ -125,8 +125,16 @@ class GodChatApp(App):
 
     @work(thread=True)
     def _send_to_god(self, message: str) -> None:
-        response = self.god_agent.chat(message)
         log = self.query_one("#chat-log", RichLog)
+        self.call_from_thread(log.write, "[dim]God is contemplating…[/dim]")
+        try:
+            response = self.god_agent.chat(message)
+        except Exception as e:
+            self.call_from_thread(
+                log.write,
+                f"[red]The god does not answer (is the model running?): {e}[/red]",
+            )
+            return
         self.call_from_thread(log.write, f"[bold yellow]God:[/bold yellow] {response}")
         if self.god_agent.is_done():
             self.call_from_thread(log.write, "[bold green]The world is complete.[/bold green]")
