@@ -4,13 +4,15 @@ import { Camera } from './camera.js';
 import { renderTiles } from './tile_layer.js';
 import { renderEntities } from './entity_layer.js';
 import { renderEffects } from './effect_layer.js';
-import { renderUI } from './ui_layer.js';
+import { renderUI, setupUI } from './ui_layer.js';
 
 const worldCanvas = document.getElementById('world-canvas');
 const effectCanvas = document.getElementById('effect-canvas');
 const uiLayer = document.getElementById('ui-layer');
 const ctx2d = worldCanvas.getContext('2d');
 const gl = effectCanvas.getContext('webgl2');
+
+setupUI();
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -24,11 +26,16 @@ const atlas = new SpriteAtlas('/sprites');
 const camera = new Camera(32);
 let tick = 0;
 
+const tickEl = document.getElementById('tick-display');
+const connEl = document.getElementById('conn-status');
+
 const evtSource = new EventSource('/frames');
 evtSource.onmessage = (evt) => {
   if (evt.data === 'ping') return;
   const frame = parseFrame(evt.data);
   tick = frame.tick || tick;
+
+  if (tickEl) tickEl.textContent = `Tick ${tick}`;
 
   ctx2d.clearRect(0, 0, worldCanvas.width, worldCanvas.height);
   renderTiles(ctx2d, frame, camera, atlas);
@@ -37,7 +44,13 @@ evtSource.onmessage = (evt) => {
   renderUI(uiLayer, frame);
 };
 
-evtSource.onerror = () => console.warn('SSE connection lost, browser will reconnect.');
+evtSource.onerror = () => {
+  console.warn('SSE connection lost, browser will reconnect.');
+  if (connEl) { connEl.textContent = '● Reconnecting'; connEl.className = 'err'; }
+};
+evtSource.onopen = () => {
+  if (connEl) { connEl.textContent = '● Connected'; connEl.className = 'ok'; }
+};
 
 document.addEventListener('keydown', (e) => {
   const map = { ArrowUp: 'north', ArrowDown: 'south', ArrowLeft: 'west', ArrowRight: 'east' };
