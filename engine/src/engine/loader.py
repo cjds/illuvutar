@@ -6,7 +6,7 @@ import yaml
 
 from engine.entities.store import EntityStore
 from engine.entities.components import (
-    Position, Sprite, Health, PhysicsComponent, Label, Tags, AIComponent, Mind
+    Position, Sprite, Health, PhysicsComponent, Label, Tags, AIComponent, Mind, Profile
 )
 from engine.entities.persistence import load_entity_state
 from engine.physics.passability import PassabilityMap
@@ -127,6 +127,9 @@ def load_world(world_dir: Path | str, memory_word_limit: int | None = None,
                 mind.set_memory(str(state.get("memory", "")))
                 mind.set_facts(str(state.get("facts", mind.facts)))
 
+            job = str(agent.get("job", ""))
+            backstory = str(agent.get("backstory", ""))
+
             store.create(eid, kind, [
                 Position(x, y),
                 Sprite(sprite_name),
@@ -136,6 +139,7 @@ def load_world(world_dir: Path | str, memory_word_limit: int | None = None,
                 Tags(["agent", kind]),
                 AIComponent(agent_id=eid, goal=goal),
                 mind,
+                Profile(job=job, backstory=backstory),
             ])
 
     # --- Sprite dir ---
