@@ -35,3 +35,13 @@ def test_save_leaves_no_tmp_files(tmp_path):
     save_entity_state(tmp_path, "guardian", "g", Mind(memory="m", facts="f"))
     tmp_leftovers = list((tmp_path / ".entities").glob("*.tmp"))
     assert tmp_leftovers == []
+
+
+def test_unsafe_entity_id_load_returns_none(tmp_path):
+    assert load_entity_state(tmp_path, "../escape") is None
+
+
+def test_unsafe_entity_id_save_is_noop(tmp_path):
+    save_entity_state(tmp_path, "../escape", "g", Mind(memory="m", facts="f"))
+    # nothing written outside .entities
+    assert not (tmp_path.parent / "escape.json").exists()

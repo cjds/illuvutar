@@ -67,7 +67,7 @@ class Tags:
 
 
 def _truncate_words(text: str, limit: int) -> str:
-    return " ".join((text or "").split()[:limit])
+    return " ".join((text or "").split()[:max(0, limit)])
 
 
 @dataclass

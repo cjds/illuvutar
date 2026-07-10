@@ -172,11 +172,32 @@ async def test_overlimit_memory_is_truncated(passability, tmp_path):
     assert s.get_component("w", Mind).memory == "one two three"
 
 
-@pytest.mark.asyncio
-async def test_flush_all_writes_every_ai_entity(store_with_mind, passability, tmp_path):
+def test_flush_all_persists_only_changed_entities(store_with_mind, passability, tmp_path):
     sys = OllamaAISystem(store_with_mind, passability, world_dir=tmp_path)
-    sys.flush_all()
     from engine.entities.persistence import load_entity_state
-    state = load_entity_state(tmp_path, "wanderer")
-    assert state is not None
-    assert state["memory"] == "I passed the old well"
+    # nothing changed → nothing dirty → flush writes nothing (seed is not shadowed)
+    sys.flush_all()
+    assert load_entity_state(tmp_path, "wanderer") is None
+    # a changed entity is in _dirty → flush persists it
+    sys._dirty.add("wanderer")
+    sys.flush_all()
+    assert load_entity_state(tmp_path, "wanderer") is not None
+
+
+@pytest.mark.asyncio
+async def test_no_second_think_while_one_is_in_flight(store_with_mind, passability, tmp_path):
+    sys = OllamaAISystem(store_with_mind, passability, world_dir=tmp_path)
+    sys._inflight.add("wanderer")           # simulate a think already running
+    await sys.schedule_thinks(tick=50)
+    assert sys._pending == []               # no duplicate task scheduled
+
+
+@pytest.mark.asyncio
+async def test_inflight_cleared_after_think_completes(store_with_mind, passability, tmp_path):
+    sys = OllamaAISystem(store_with_mind, passability, world_dir=tmp_path)
+    with patch("engine.systems.ollama_ai.ollama") as mock_ollama:
+        mock_ollama.AsyncClient.return_value.chat = AsyncMock(return_value=_mock_decision())
+        await sys.schedule_thinks(tick=50)
+        await asyncio.sleep(0.1)
+        await sys.drain_results()
+    assert "wanderer" not in sys._inflight

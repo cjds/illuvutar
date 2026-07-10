@@ -51,10 +51,12 @@ class OllamaAISystem:
         self._think_interval = think_interval
         self._world_dir = world_dir
         self._last_think: dict[str, int] = {}
-        self._pending: list[asyncio.Task] = []
+        self._pending: list[tuple[str, asyncio.Task]] = []
         self._results: list[WRLThought | Command] = []
         self._lock = asyncio.Lock()
         self._whispers: dict[str, list[str]] = {}
+        self._inflight: set[str] = set()
+        self._dirty: set[str] = set()
 
     def inject_whisper(self, entity_id: str, text: str) -> None:
         """Queue a whisper to be included in entity's next think context."""
@@ -69,15 +71,19 @@ class OllamaAISystem:
             last = self._last_think.get(entity_id, -self._think_interval)
             if tick - last < self._think_interval:
                 continue
+            if entity_id in self._inflight:
+                continue
             self._last_think[entity_id] = tick
+            self._inflight.add(entity_id)
             task = asyncio.create_task(self._think(entity_id, tick))
-            self._pending.append(task)
+            self._pending.append((entity_id, task))
 
     async def drain_results(self) -> list[WRLThought | Command]:
         """Collect completed think results. Non-blocking."""
         still_running = []
-        for task in self._pending:
+        for entity_id, task in self._pending:
             if task.done():
+                self._inflight.discard(entity_id)
                 try:
                     items = task.result()
                     async with self._lock:
@@ -85,7 +91,7 @@ class OllamaAISystem:
                 except Exception:
                     pass
             else:
-                still_running.append(task)
+                still_running.append((entity_id, task))
         self._pending = still_running
 
         async with self._lock:
@@ -158,8 +164,10 @@ class OllamaAISystem:
             if ai.goal != new_goal.strip():
                 ai.goal = new_goal.strip()
                 changed = True
-        if changed and self._world_dir is not None and mind is not None and ai is not None:
-            save_entity_state(self._world_dir, entity_id, ai.goal, mind)
+        if changed:
+            self._dirty.add(entity_id)
+            if self._world_dir is not None and mind is not None and ai is not None:
+                save_entity_state(self._world_dir, entity_id, ai.goal, mind)
 
         results: list[WRLThought | Command] = []
         thought_text = decision.get("thought", "")
@@ -183,11 +191,13 @@ class OllamaAISystem:
         return results
 
     def flush_all(self) -> None:
-        """Persist every AI entity's current state (shutdown safety net)."""
+        """Persist entities whose state changed since load (shutdown safety net)."""
         if self._world_dir is None:
+            self._dirty.clear()
             return
-        for eid in self._store.all_ids():
+        for eid in list(self._dirty):
             mind = self._store.get_component(eid, Mind)
             ai = self._store.get_component(eid, AIComponent)
             if mind is not None and ai is not None:
                 save_entity_state(self._world_dir, eid, ai.goal, mind)
+        self._dirty.clear()
