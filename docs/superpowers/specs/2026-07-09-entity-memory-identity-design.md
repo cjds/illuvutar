@@ -8,13 +8,30 @@
 
 Give every AI entity in the simulation:
 
-1. A **limited-size episodic memory** it fills itself (agentic).
-2. **Facts about its own identity** it can accumulate.
+1. A **word-budgeted episodic memory** it authors itself (agentic).
+2. **Facts about its own identity** it can accumulate and revise.
 3. The ability to **edit some of its identity** (its goal and its self-facts),
    while a locked core (id, kind, name) stays fixed.
 
 State persists across engine restarts so entities genuinely accumulate a history,
 mirroring the god agent's persistent memory.
+
+## The memory model: word budget, entity-curated
+
+Memory and facts are **free-form text with a maximum word count** — *not* a
+fixed-length queue of items. The engine never drops "the oldest item." Instead:
+
+- Each tick the entity sees its current memory/facts text **and its word limit**.
+- The entity may **rewrite** either blob to whatever it wants to keep — consolidating,
+  dropping, rephrasing, adding — as long as it fits the budget.
+- The engine's only enforcement is a hard cap: if submitted text exceeds the limit it
+  is truncated to the first N words (safety net; the entity is told the limit and is
+  expected to self-manage).
+
+So the entity is "free to fit what it can" within the limit and owns the editorial
+decisions. This is more agentic than FIFO and produces natural summarization.
+
+Defaults (tunable): **memory = 60 words**, **facts = 30 words**.
 
 ## Current state (what exists today)
 
@@ -38,22 +55,24 @@ One cohesive component holds the entity's mutable inner life
 ```python
 @dataclass
 class Mind:
-    memory: list[str] = field(default_factory=list)   # episodic — "what happened"
-    facts:  list[str] = field(default_factory=list)   # self-beliefs — "who I am"
-    memory_capacity: int = 10
-    facts_capacity:  int = 5
+    memory: str = ""                 # episodic — "what happened", word-budgeted
+    facts:  str = ""                 # self-beliefs — "who I am", word-budgeted
+    memory_word_limit: int = 60
+    facts_word_limit:  int = 30
 
-    def remember(self, note: str) -> bool:
-        """Append an episodic note; FIFO-trim to capacity. Returns True if changed."""
+    def set_memory(self, text: str) -> bool:
+        """Replace memory with text, truncated to memory_word_limit words.
+        Returns True if the stored value changed."""
 
-    def add_fact(self, fact: str) -> bool:
-        """Append a self-belief; dedup; FIFO-trim to capacity. Returns True if changed."""
+    def set_facts(self, text: str) -> bool:
+        """Replace facts with text, truncated to facts_word_limit words.
+        Returns True if the stored value changed."""
 ```
 
-- Both methods strip input, ignore empties, return whether they mutated (drives the
-  persistence dirty flag).
-- `remember`: plain FIFO — oldest note drops when over `memory_capacity`.
-- `add_fact`: dedup (skip if already present), then FIFO-trim to `facts_capacity`.
+- Word count = whitespace split; truncation keeps the first N words and rejoins with
+  single spaces. Input is stripped; empty input clears the blob.
+- Methods return whether they changed the stored value (drives the persistence dirty
+  flag).
 - The editable **goal** stays on `AIComponent.goal` (already read by the prompt).
 
 `AIComponent.memory_ref` is removed.
@@ -61,31 +80,38 @@ class Mind:
 ### 2. Think loop — read & write (`ollama_ai.py`)
 
 **Prompt gains a self/memory block** (read), built from the entity's `Mind` +
-`AIComponent.goal` + `Label`:
+`AIComponent.goal` + `Label`, and it states the word limits so the model self-manages:
 
 ```
 Who you are: {name}, a {kind}.
-What you believe about yourself: {facts joined by " | " or "nothing yet"}
+What you believe about yourself (identity, keep within {facts_word_limit} words):
+  {facts or "nothing yet"}
 Your goal: {goal}
-What you remember: {memory joined by " | " or "nothing yet"}
+What you remember (keep within {memory_word_limit} words, in your own words):
+  {memory or "nothing yet"}
+
+You may rewrite "memory" and "facts" to keep only what matters within the limits.
 ```
 
 **Decision JSON gains three optional fields** (write):
 
 ```jsonc
 { "action": "...", "thought": "...",
-  "remember": "a short note to keep in memory",   // → Mind.remember()
-  "add_fact": "a lasting belief about myself",     // → Mind.add_fact()
-  "set_goal": "a new goal (replaces current)" }    // → AIComponent.goal
+  "memory":   "the full text I want to remember (<= 60 words)",  // → Mind.set_memory()
+  "facts":    "my identity beliefs (<= 30 words)",                // → Mind.set_facts()
+  "set_goal": "a new goal (replaces current)" }                   // → AIComponent.goal
 ```
 
+- Each field is a **wholesale replacement** of that blob (not an append), so the entity
+  curates. Absent field = leave that blob unchanged. Over-limit text is truncated by
+  the component.
 - Locked fields (id/kind/name) have no JSON field, so they can't be edited.
-- Applying mutations: `_think` already reads store components after its single
-  `await` (the ollama call). In this cooperative single-threaded asyncio model,
-  nothing else runs between that await returning and `_think` finishing, so `_think`
-  applies the mutations **directly** to the entity's `Mind`/`AIComponent` and records
-  the entity id in a `self._dirty: set[str]` for persistence. `set_goal` replaces the
-  goal verbatim (trimmed, ignored if empty).
+- Applying mutations: `_think` already reads store components after its single `await`
+  (the ollama call). In this cooperative single-threaded asyncio model, nothing else
+  runs between that await returning and `_think` finishing, so `_think` applies the
+  mutations **directly** to the entity's `Mind`/`AIComponent` and records the entity id
+  in `self._dirty: set[str]` for persistence. `set_goal` replaces the goal verbatim
+  (trimmed, ignored if empty).
 - The existing fallback (parse/network failure → idle thought) leaves memory/identity
   untouched.
 
@@ -95,7 +121,7 @@ What you remember: {memory joined by " | " or "nothing yet"}
 world_dir/
   agents.yaml          ← seed (unchanged file, one new optional key)
   .entities/
-    <id>.json          ← evolved state: { "goal", "memory": [], "facts": [] }
+    <id>.json          ← evolved state: { "goal", "memory": "", "facts": "" }
 ```
 
 New module `engine/entities/persistence.py`:
@@ -106,21 +132,21 @@ def save_entity_state(world_dir, entity_id, goal: str, mind: Mind) -> None
 ```
 
 - **Startup (loader):** build the entity from `agents.yaml`, construct its `Mind`
-  (seeding `facts` from an optional `facts:` list in the agent entry), then, if
-  `.entities/<id>.json` exists, **overlay** it — persisted `goal`/`memory`/`facts`
-  win over the seed. Capacities stay at the component defaults; overlaid lists are
-  trimmed to capacity on load.
-- **Save:** `OllamaAISystem` flushes every entity in `self._dirty` on a debounce —
-  once per `_think` scheduling pass (every `think_interval` ticks) — and a full flush
-  of all AI entities on shutdown.
-- **Shutdown hook:** `engine/server/app.py` exposes an async shutdown that calls the
-  AI system's `flush_all()`. (Replaces the deprecated `@app.on_event("shutdown")`
-  with a lifespan handler.)
+  (seeding `facts` from an optional `facts:` key — string, or a list joined into text),
+  then, if `.entities/<id>.json` exists, **overlay** it — persisted `goal`/`memory`/
+  `facts` win over the seed. Overlaid blobs are re-truncated to the component word
+  limits on load.
+- **Save:** `OllamaAISystem` flushes every entity in `self._dirty` on a debounce — once
+  per `_think` scheduling pass (every `think_interval` ticks) — and a full flush of all
+  AI entities on shutdown.
+- **Shutdown hook:** `engine/server/app.py` calls the AI system's `flush_all()` via a
+  lifespan handler (replacing the deprecated `@app.on_event("shutdown")`).
 - `.entities/` is added to the repo `.gitignore` (runtime state, not source).
 
 ### 4. `agents.yaml` seed extension
 
-One new **optional** key per agent; existing files stay valid:
+One new **optional** key per agent; existing files stay valid. `facts` may be a string
+or a list (a list is joined into a single text blob):
 
 ```yaml
 - id: guardian
@@ -129,15 +155,14 @@ One new **optional** key per agent; existing files stay valid:
   x: 5
   y: 5
   behavior: guard the ruins     # → AIComponent.goal (as today)
-  facts:                        # NEW, optional — initial self-beliefs
-    - I distrust strangers
+  facts: "I distrust strangers. I am sworn to the eastern ruins."   # NEW, optional
 ```
 
 ## Components & boundaries
 
 | Unit | Responsibility | Depends on |
 |------|----------------|------------|
-| `Mind` (component) | Hold + cap memory and facts | nothing |
+| `Mind` (component) | Hold memory/facts text; enforce word limits | nothing |
 | `persistence.py` | Serialize/deserialize evolved state to `.entities/<id>.json` | `Mind` |
 | `loader.py` | Seed entity, overlay persisted state | `Mind`, `persistence`, `agents.yaml` |
 | `OllamaAISystem` | Build prompt from `Mind`, parse/apply updates, track dirty, flush | `Mind`, `persistence` |
@@ -146,26 +171,31 @@ One new **optional** key per agent; existing files stay valid:
 ## Error handling
 
 - Corrupt/unreadable `.entities/<id>.json` → ignored (fall back to seed), logged once.
-- `save_entity_state` writes atomically (temp file + rename) so a crash mid-write
-  can't corrupt state; failures are swallowed (best-effort persistence, never crash
-  the tick loop).
+- `save_entity_state` writes atomically (temp file + rename) so a crash mid-write can't
+  corrupt state; failures are swallowed (best-effort persistence, never crash the tick
+  loop).
 - Malformed decision JSON → existing idle-thought fallback; no state change.
-- Over-capacity overlaid lists → trimmed on load.
+- Over-limit memory/facts (from the model or an overlaid file) → truncated to the word
+  limit by the component.
 
 ## Testing (TDD)
 
-- **`Mind`:** `remember` FIFO cap; `add_fact` dedup + cap; empties ignored; return flags.
+- **`Mind`:** `set_memory`/`set_facts` truncate to the word limit; under-limit text kept
+  verbatim; empty input clears; change-flag return is correct.
 - **`persistence`:** save→load round-trip; missing file → `None`; corrupt file → `None`;
-  atomic write leaves no partial file.
-- **`loader`:** seeds `facts` from `agents.yaml`; overlays `.entities/<id>.json` over
-  seed; trims over-capacity overlay; absent `facts:` key still valid.
-- **`OllamaAISystem` (mocked ollama):** prompt contains memory + facts; a decision with
-  `remember`/`add_fact`/`set_goal` mutates the components and marks dirty; fallback path
-  leaves state untouched; `flush_all` writes every AI entity.
+  atomic write leaves no partial file on simulated failure.
+- **`loader`:** seeds `facts` from `agents.yaml` (string and list forms); overlays
+  `.entities/<id>.json` over seed; re-truncates over-limit overlay; absent `facts:` key
+  still valid.
+- **`OllamaAISystem` (mocked ollama):** prompt contains memory + facts + the word
+  limits; a decision with `memory`/`facts`/`set_goal` replaces the components and marks
+  dirty; over-limit `memory` is truncated; fallback path leaves state untouched;
+  `flush_all` writes every AI entity.
 
 ## Out of scope (YAGNI)
 
-- Removing/replacing a specific fact (add-only with aging is enough).
 - Editing name/kind/id by the entity.
-- Semantic retrieval / embeddings over memory (it's a small FIFO in the prompt).
+- Semantic retrieval / embeddings over memory (it's a small word-budgeted blob in the
+  prompt).
 - Sharing memory between entities.
+- Automatic engine-side summarization (the entity does its own compaction).
