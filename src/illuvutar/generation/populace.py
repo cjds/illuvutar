@@ -12,13 +12,24 @@ def _truncate_words(text: str, limit: int) -> str:
 
 
 def _region_ids_for_biome(regions: list[dict], biome: str) -> set[int]:
-    return {int(r["id"]) for r in regions if r.get("biome") == biome}
+    # The tilemap's `region` field is the positional index of the region (see run_wfc,
+    # which builds Region(id=i, ...) from enumerate). Match on that index, NOT a declared
+    # `id` key, and never raise on a malformed region entry.
+    return {i for i, r in enumerate(regions) if isinstance(r, dict) and r.get("biome") == biome}
 
 
 def _walkable_cells(tilemap: list[dict], region_ids: set[int], walkable: set[str]) -> list[dict]:
-    cells = [c for c in tilemap
-             if c.get("tile_id") in walkable and int(c.get("region", -1)) in region_ids]
-    return cells
+    out = []
+    for c in tilemap:
+        if c.get("tile_id") not in walkable:
+            continue
+        try:
+            reg = int(c.get("region", -1))
+        except (TypeError, ValueError):
+            continue
+        if reg in region_ids:
+            out.append(c)
+    return out
 
 
 def _prompt(job: Job, world_name: str, world_tone: str) -> str:

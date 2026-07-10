@@ -115,16 +115,21 @@ class AgentTools:
         regions = (regions_data or {}).get("regions", []) if isinstance(regions_data, dict) else []
         walkable = {
             t.id for t in self.tiles
-            if not (set(t.tags) & self._BLOCKED_TAGS) and not t.id.startswith("water")
+            if not (set(t.tags) & self._BLOCKED_TAGS)
+            and "water" not in t.tags
+            and not t.id.startswith("water")
         }
         if not walkable:
             return "Error: no walkable tiles in palette."
         constitution = self.writer.read("constitution") or {}
-        people = generate_populace(
-            JOBS[:count], tilemap, regions, walkable, model=self.model,
-            world_name=(constitution.get("world_name", "") if isinstance(constitution, dict) else ""),
-            world_tone=(constitution.get("tone", "") if isinstance(constitution, dict) else ""),
-        )
+        try:
+            people = generate_populace(
+                JOBS[:count], tilemap, regions, walkable, model=self.model,
+                world_name=(constitution.get("world_name", "") if isinstance(constitution, dict) else ""),
+                world_tone=(constitution.get("tone", "") if isinstance(constitution, dict) else ""),
+            )
+        except Exception as e:
+            return f"Error generating populace: {e}"
         self.writer.write("agents", people)
         return f"Populated {len(people)} NPCs across the town."
 

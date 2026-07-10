@@ -69,3 +69,36 @@ def test_backstory_truncated_to_word_limit():
         mo.chat.return_value = _mock_ok(story=long_story)
         people = generate_populace(JOBS[:1], _tilemap(), _REGIONS, _WALKABLE, model="m", backstory_word_limit=12)
     assert len(people[0]["backstory"].split()) == 12
+
+
+def test_biome_placement_uses_positional_index_not_declared_id():
+    # Region list order = positional index used by the tilemap (per _tilemap(): index 0
+    # is grassland/y1-4, index 1 is the forest strip/y==0, index 2 is water/y==5), but
+    # declared ids are scrambled / missing. Forest is at positional index 1.
+    regions = [
+        {"id": 7, "name": "Plains", "biome": "grassland"},  # index 0 -> tilemap region 0 (grass_plain, y 1-4)
+        {"id": 99, "name": "Wood", "biome": "forest"},      # index 1 -> tilemap region 1 (forest strip, y==0)
+        {"name": "Lake", "biome": "water"},                 # index 2, no id key -> tilemap region 2 (water, y==5)
+    ]
+    # Place 6 grassland jobs first so that, under the buggy declared-id matching (where
+    # NO declared id ever equals an actual tilemap region 0/1/2), every job falls back to
+    # "any walkable cell" in iteration order — which exhausts the forest strip (y==0, the
+    # first 6 walkable cells) before the forest job is ever placed. Under the fix, the
+    # grassland jobs correctly claim only region-0 (y 1-4) cells, leaving the forest strip
+    # untouched for the forest job.
+    from illuvutar.generation.jobs import Job
+    forest_job = Job("hunter", "Hunter", "The Wood", "forest", "tracks game")
+    jobs = JOBS[:6] + [forest_job]
+    with patch("illuvutar.generation.populace.ollama") as mo:
+        mo.chat.return_value = _mock_ok()
+        people = generate_populace(jobs, _tilemap(), regions, _WALKABLE, model="m")
+    assert len(people) == 7
+    assert people[-1]["y"] == 0  # placed in the forest strip (positional region 1), not a fallback cell
+
+
+def test_malformed_regions_do_not_raise():
+    bad_regions = [{"name": "no id or biome"}, {"id": "notanint", "biome": "grassland"}, 42]
+    with patch("illuvutar.generation.populace.ollama") as mo:
+        mo.chat.return_value = _mock_ok()
+        people = generate_populace(JOBS[:3], _tilemap(), bad_regions, _WALKABLE, model="m")
+    assert len(people) == 3  # never raised; still placed on walkable cells
