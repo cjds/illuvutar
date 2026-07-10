@@ -31,7 +31,17 @@ fixed-length queue of items. The engine never drops "the oldest item." Instead:
 So the entity is "free to fit what it can" within the limit and owns the editorial
 decisions. This is more agentic than FIFO and produces natural summarization.
 
-Defaults (tunable): **memory = 60 words**, **facts = 30 words**.
+### Configuring the word limits
+
+The two limits are configurable, resolved with this precedence (first that is set wins):
+
+1. **Engine CLI flags** — `--memory-words N`, `--facts-words N` (runtime override).
+2. **`constitution.yaml`** — optional world-level keys `memory_word_limit`,
+   `facts_word_limit` (persist with the world; a world can theme its beings' memory).
+3. **Built-in defaults** — memory = 60 words, facts = 30 words.
+
+The resolved values are applied uniformly to every entity's `Mind` at load. (Per-entity
+overrides are out of scope — YAGNI.)
 
 ## Current state (what exists today)
 
@@ -131,11 +141,17 @@ def load_entity_state(world_dir, entity_id) -> dict | None
 def save_entity_state(world_dir, entity_id, goal: str, mind: Mind) -> None
 ```
 
-- **Startup (loader):** build the entity from `agents.yaml`, construct its `Mind`
-  (seeding `facts` from an optional `facts:` key — string, or a list joined into text),
-  then, if `.entities/<id>.json` exists, **overlay** it — persisted `goal`/`memory`/
-  `facts` win over the seed. Overlaid blobs are re-truncated to the component word
-  limits on load.
+- **Startup (loader):** `load_world` resolves the word limits (CLI override →
+  `constitution.yaml` → defaults) and accepts them as `memory_word_limit` /
+  `facts_word_limit` args. It builds each entity from `agents.yaml`, constructs its
+  `Mind` **with the resolved limits** (seeding `facts` from an optional `facts:` key —
+  string, or a list joined into text), then, if `.entities/<id>.json` exists, **overlay**
+  it — persisted `goal`/`memory`/`facts` win over the seed. Overlaid blobs are
+  re-truncated to the resolved word limits on load.
+- **Config flow:** `engine/__main__.py` parses `--memory-words` / `--facts-words`
+  (default `None` = "not set"), passes them to `load_world`, which reads
+  `constitution.yaml` for world-level values and falls back to the built-in defaults.
+  The resolved integers are what land on every `Mind`.
 - **Save:** `OllamaAISystem` flushes every entity in `self._dirty` on a debounce — once
   per `_think` scheduling pass (every `think_interval` ticks) — and a full flush of all
   AI entities on shutdown.
@@ -187,6 +203,8 @@ or a list (a list is joined into a single text blob):
 - **`loader`:** seeds `facts` from `agents.yaml` (string and list forms); overlays
   `.entities/<id>.json` over seed; re-truncates over-limit overlay; absent `facts:` key
   still valid.
+- **Config resolution:** CLI arg wins over `constitution.yaml`; `constitution.yaml`
+  wins over the built-in default; resolved limits land on every entity's `Mind`.
 - **`OllamaAISystem` (mocked ollama):** prompt contains memory + facts + the word
   limits; a decision with `memory`/`facts`/`set_goal` replaces the components and marks
   dirty; over-limit `memory` is truncated; fallback path leaves state untouched;
