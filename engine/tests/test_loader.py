@@ -133,3 +133,26 @@ def test_constitution_limit_used_when_no_cli(world_dir):
     (world_dir / "constitution.yaml").write_text(yaml.dump(const))
     data = load_world(world_dir)
     assert data.store.get_component("e1", Mind).facts_word_limit == 7
+
+
+from engine.entities.components import Profile
+
+
+def test_entity_gets_empty_profile_by_default(world_dir):
+    data = load_world(world_dir)
+    prof = data.store.get_component("e1", Profile)
+    assert prof is not None
+    assert prof.job == "" and prof.backstory == ""
+
+
+def test_profile_loaded_from_agents_yaml(world_dir):
+    import yaml
+    (world_dir / "agents.yaml").write_text(yaml.dump([
+        {"id": "e1", "kind": "humanoid", "x": 1, "y": 1, "name": "Bram",
+         "behavior": "forge", "job": "Blacksmith",
+         "backstory": "Took the forge after the fever winter."},
+    ]))
+    data = load_world(world_dir)
+    prof = data.store.get_component("e1", Profile)
+    assert prof.job == "Blacksmith"
+    assert "fever winter" in prof.backstory

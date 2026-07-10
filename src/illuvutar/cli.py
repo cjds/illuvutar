@@ -33,7 +33,7 @@ def create_world(palette, world, model, engine_url):
     rag = PaletteRAG.build(tiles, persist_dir=str(rag_dir))
 
     writer = WorldStateWriter(world_dir)
-    tools = AgentTools(writer=writer, rag=rag, tiles=tiles, palette_dir=palette_dir)
+    tools = AgentTools(writer=writer, rag=rag, tiles=tiles, palette_dir=palette_dir, model=model)
 
     # God memory persists at world_dir/.god_memory.json
     memory = GodMemory(world_dir / ".god_memory.json")

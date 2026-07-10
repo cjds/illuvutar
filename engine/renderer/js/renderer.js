@@ -5,6 +5,7 @@ import { renderTiles } from './tile_layer.js';
 import { renderEntities } from './entity_layer.js';
 import { renderEffects } from './effect_layer.js';
 import { renderUI, setupUI } from './ui_layer.js';
+import { setupProfilePanel } from './profile_panel.js';
 
 const worldCanvas = document.getElementById('world-canvas');
 const effectCanvas = document.getElementById('effect-canvas');
@@ -25,6 +26,8 @@ window.addEventListener('resize', resize);
 const atlas = new SpriteAtlas('/sprites');
 const camera = new Camera(32);
 let tick = 0;
+let currentFrame = null;
+setupProfilePanel(worldCanvas, camera, () => currentFrame);
 
 const tickEl = document.getElementById('tick-display');
 const connEl = document.getElementById('conn-status');
@@ -33,6 +36,7 @@ const evtSource = new EventSource('/frames');
 evtSource.onmessage = (evt) => {
   if (evt.data === 'ping') return;
   const frame = parseFrame(evt.data);
+  currentFrame = frame;
   tick = frame.tick || tick;
 
   if (tickEl) tickEl.textContent = `Tick ${tick}`;

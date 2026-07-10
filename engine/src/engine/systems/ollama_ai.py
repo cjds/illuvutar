@@ -3,7 +3,7 @@ import asyncio
 import json
 import ollama
 from engine.entities.store import EntityStore
-from engine.entities.components import Position, Label, AIComponent, Tags, Mind
+from engine.entities.components import Position, Label, AIComponent, Tags, Mind, Profile
 from engine.entities.persistence import save_entity_state
 from engine.physics.passability import PassabilityMap
 from engine.physics.adjacency import get_adjacent_entities
@@ -12,7 +12,8 @@ from engine.wrl.schema import WRLThought
 
 _THINK_PROMPT = """\
 You are {name}, a {kind} in a living 2D world.
-Who you are (you cannot change these): name={name}, kind={kind}.
+Who you are (you cannot change these): name={name}, kind={kind}, role={job}.
+Your background: {backstory}
 What you believe about yourself (your identity, keep within {facts_words} words):
 {facts}
 Your goal: {goal}
@@ -127,12 +128,17 @@ class OllamaAISystem:
         facts_words = mind.facts_word_limit if mind else 30
         memory_words = mind.memory_word_limit if mind else 60
 
+        profile = self._store.get_component(entity_id, Profile)
+        job = profile.job if profile and profile.job else kind
+        backstory = profile.backstory if profile and profile.backstory else "unknown"
+
         prompt = _THINK_PROMPT.format(
             name=name, kind=kind, goal=goal,
             x=x, y=y, nearby=nearby_str,
             context="A 2D world of forest, ruins, and open plain.",
             facts=facts_text, memory=memory_text,
             facts_words=facts_words, memory_words=memory_words,
+            job=job, backstory=backstory,
         ) + whisper_ctx
 
         try:

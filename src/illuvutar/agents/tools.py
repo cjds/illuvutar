@@ -11,6 +11,8 @@ from illuvutar.world_state.writer import WorldStateWriter
 from illuvutar.world_state.schema import Region
 from illuvutar.generation.voronoi import regions_to_grid
 from illuvutar.generation.wfc import WFC
+from illuvutar.generation.jobs import JOBS
+from illuvutar.generation.populace import generate_populace
 
 
 class AgentTools:
@@ -20,11 +22,13 @@ class AgentTools:
         rag: PaletteRAG,
         tiles: list[Tile],
         palette_dir: Path,
+        model: str = "llama3.2",
     ):
         self.writer = writer
         self.rag = rag
         self.tiles = tiles
         self.palette_dir = palette_dir
+        self.model = model
         self._specialist_results: list[str] = []
 
     def read_file(self, name: str) -> str:
@@ -100,6 +104,34 @@ class AgentTools:
         mandate_path.parent.mkdir(exist_ok=True)
         mandate_path.write_text(yaml.dump(mandate))
         return f"Specialist mandate written for role '{mandate['role']}'."
+
+    _BLOCKED_TAGS = {"blocked", "impassable", "structure", "high", "void"}
+
+    def populate_town(self, count: int = 20) -> str:
+        tilemap = self.writer.read("tilemap")
+        regions_data = self.writer.read("regions")
+        if not tilemap:
+            return "Error: tilemap.json missing — run run_wfc first."
+        regions = (regions_data or {}).get("regions", []) if isinstance(regions_data, dict) else []
+        walkable = {
+            t.id for t in self.tiles
+            if not (set(t.tags) & self._BLOCKED_TAGS)
+            and "water" not in t.tags
+            and not t.id.startswith("water")
+        }
+        if not walkable:
+            return "Error: no walkable tiles in palette."
+        constitution = self.writer.read("constitution") or {}
+        try:
+            people = generate_populace(
+                JOBS[:count], tilemap, regions, walkable, model=self.model,
+                world_name=(constitution.get("world_name", "") if isinstance(constitution, dict) else ""),
+                world_tone=(constitution.get("tone", "") if isinstance(constitution, dict) else ""),
+            )
+        except Exception as e:
+            return f"Error generating populace: {e}"
+        self.writer.write("agents", people)
+        return f"Populated {len(people)} NPCs across the town."
 
     @staticmethod
     def definitions() -> list[dict]:
@@ -177,6 +209,18 @@ class AgentTools:
                             }
                         },
                         "required": ["mandate_json"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "populate_town",
+                    "description": "Populate agents.yaml with job-holding townsfolk and backstories. Requires tilemap.json (run run_wfc first).",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"count": {"type": "integer", "description": "How many NPCs (default 20)"}},
+                        "required": [],
                     },
                 },
             },

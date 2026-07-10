@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from engine.entities.store import EntityStore
+from engine.entities.components import Label, Profile, Mind, AIComponent
 from engine.physics.passability import PassabilityMap
 from engine.server.sse import SSEBroadcaster
 from engine.server.command import parse_command
@@ -104,6 +105,23 @@ def create_app(
             return Response(content="Missing text", status_code=400)
         tick_loop.inject_whisper(entity_id, text)
         return {"ok": True, "entity_id": entity_id}
+
+    @app.get("/entity/{entity_id}/profile")
+    async def entity_profile(entity_id: str):
+        if entity_id not in store.all_ids():
+            return Response(content="Unknown entity", status_code=404)
+        label = store.get_component(entity_id, Label)
+        prof = store.get_component(entity_id, Profile)
+        mind = store.get_component(entity_id, Mind)
+        ai = store.get_component(entity_id, AIComponent)
+        return {
+            "id": entity_id,
+            "name": label.name if label else entity_id,
+            "job": prof.job if prof else "",
+            "backstory": prof.backstory if prof else "",
+            "facts": mind.facts if mind else "",
+            "goal": ai.goal if ai else "",
+        }
 
     @app.get("/thoughts")
     async def get_thoughts():

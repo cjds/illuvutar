@@ -90,3 +90,9 @@ class Mind:
             return False
         self.facts = new
         return True
+
+
+@dataclass
+class Profile:
+    job: str = ""
+    backstory: str = ""
