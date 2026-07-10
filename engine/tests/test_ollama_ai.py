@@ -201,3 +201,34 @@ async def test_inflight_cleared_after_think_completes(store_with_mind, passabili
         await asyncio.sleep(0.1)
         await sys.drain_results()
     assert "wanderer" not in sys._inflight
+
+
+from engine.entities.components import Profile
+
+
+@pytest.mark.asyncio
+async def test_prompt_includes_job_and_backstory(passability, tmp_path):
+    s = EntityStore()
+    s.create("smith", "humanoid", [
+        Position(2, 2), Label("Bram"),
+        AIComponent(agent_id="smith", goal="forge"),
+        Tags(["agent"]), PhysicsComponent(),
+        Mind(memory="", facts=""),
+        Profile(job="Blacksmith", backstory="Took the forge after the fever winter."),
+    ])
+    sys = OllamaAISystem(s, passability, world_dir=tmp_path)
+    captured = {}
+
+    async def fake_chat(*, model, messages):
+        captured["p"] = messages[0]["content"]
+        m = MagicMock(); m.message.content = json.dumps({"action": "rest", "thought": "x"})
+        return m
+
+    with patch("engine.systems.ollama_ai.ollama") as mock_ollama:
+        mock_ollama.AsyncClient.return_value.chat = AsyncMock(side_effect=fake_chat)
+        await sys.schedule_thinks(tick=50)
+        await asyncio.sleep(0.1)
+        await sys.drain_results()
+
+    assert "Blacksmith" in captured["p"]
+    assert "fever winter" in captured["p"]
