@@ -43,7 +43,6 @@ class Inventory:
 class AIComponent:
     agent_id: str
     goal: str = "idle"
-    memory_ref: str = ""
 
 
 @dataclass
@@ -65,3 +64,29 @@ class Tags:
 
     def has(self, tag: str) -> bool:
         return tag in self.values
+
+
+def _truncate_words(text: str, limit: int) -> str:
+    return " ".join((text or "").split()[:max(0, limit)])
+
+
+@dataclass
+class Mind:
+    memory: str = ""                 # episodic — "what happened"
+    facts: str = ""                  # self-beliefs — "who I am"
+    memory_word_limit: int = 60
+    facts_word_limit: int = 30
+
+    def set_memory(self, text: str) -> bool:
+        new = _truncate_words(text, self.memory_word_limit)
+        if new == self.memory:
+            return False
+        self.memory = new
+        return True
+
+    def set_facts(self, text: str) -> bool:
+        new = _truncate_words(text, self.facts_word_limit)
+        if new == self.facts:
+            return False
+        self.facts = new
+        return True

@@ -27,6 +27,7 @@ class TickLoop:
         frame_callback: Callable[[WRLFrame], Awaitable[None]],
         tick_interval: float = 0.1,
         ai_model: str = "llama3.2",
+        world_dir=None,
     ):
         self._store = store
         self._tick_interval = tick_interval
@@ -43,7 +44,8 @@ class TickLoop:
         self._inventory = InventorySystem(store)
         self._ai = AIDecisionSystem(store)
         self._render = RenderOutputSystem(store, palette, tilemap_data, world_id, width, height)
-        self._ollama_ai = OllamaAISystem(store, passability, model=ai_model, think_interval=50)
+        self._ollama_ai = OllamaAISystem(store, passability, model=ai_model,
+                                         think_interval=50, world_dir=world_dir)
         self._pending_thoughts: list[WRLThought] = []
         self._whispers: dict[str, list[str]] = {}
         self._thought_log: list[dict] = []
@@ -59,6 +61,7 @@ class TickLoop:
 
     def stop(self) -> None:
         self._running = False
+        self._ollama_ai.flush_all()
 
     async def start(self) -> None:
         self._running = True

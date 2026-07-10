@@ -25,6 +25,7 @@ def create_app(
     max_frames: int | None = None,
     sprite_dir: Path | None = None,
     ai_model: str = "llama3.2",
+    world_dir=None,
 ) -> FastAPI:
     app = FastAPI()
     broadcaster = SSEBroadcaster()
@@ -36,7 +37,7 @@ def create_app(
         store=store, passability=passability, palette=palette,
         tilemap_data=tilemap_data, world_id=world_id,
         width=width, height=height, frame_callback=on_frame,
-        ai_model=ai_model,
+        ai_model=ai_model, world_dir=world_dir,
     )
 
     @app.on_event("startup")

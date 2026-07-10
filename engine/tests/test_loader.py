@@ -63,3 +63,73 @@ def test_load_world_tilemap_data(world_dir):
     data = load_world(world_dir)
     assert len(data.tilemap_data) == 16  # 4x4
     assert data.tilemap_data[0]["tile_id"] == "grass"
+
+
+from engine.entities.components import Mind, AIComponent
+from engine.entities.persistence import save_entity_state
+
+
+def _add_agent(world_dir, agent):
+    import yaml
+    (world_dir / "agents.yaml").write_text(yaml.dump([agent]))
+
+
+def test_entity_gets_mind_with_default_limits(world_dir):
+    data = load_world(world_dir)
+    mind = data.store.get_component("e1", Mind)
+    assert mind is not None
+    assert mind.memory_word_limit == 60
+    assert mind.facts_word_limit == 30
+
+
+def test_facts_seed_string(world_dir):
+    _add_agent(world_dir, {"id": "e1", "kind": "humanoid", "x": 1, "y": 1,
+                           "name": "Alice", "behavior": "wander",
+                           "facts": "I am cautious"})
+    data = load_world(world_dir)
+    assert data.store.get_component("e1", Mind).facts == "I am cautious"
+
+
+def test_facts_seed_list_joined(world_dir):
+    _add_agent(world_dir, {"id": "e1", "kind": "humanoid", "x": 1, "y": 1,
+                           "name": "Alice", "behavior": "wander",
+                           "facts": ["I am cautious", "I distrust strangers"]})
+    data = load_world(world_dir)
+    facts = data.store.get_component("e1", Mind).facts
+    assert "cautious" in facts and "distrust" in facts
+
+
+def test_persisted_state_overlays_seed(world_dir):
+    _add_agent(world_dir, {"id": "e1", "kind": "humanoid", "x": 1, "y": 1,
+                           "name": "Alice", "behavior": "wander",
+                           "facts": "seed fact"})
+    save_entity_state(world_dir, "e1", "evolved goal",
+                      Mind(memory="I recall the storm", facts="evolved fact"))
+    data = load_world(world_dir)
+    mind = data.store.get_component("e1", Mind)
+    ai = data.store.get_component("e1", AIComponent)
+    assert mind.memory == "I recall the storm"
+    assert mind.facts == "evolved fact"
+    assert ai.goal == "evolved goal"
+
+
+def test_cli_limit_overrides_constitution_and_truncates_overlay(world_dir):
+    import yaml
+    const = yaml.safe_load((world_dir / "constitution.yaml").read_text())
+    const["memory_word_limit"] = 40
+    (world_dir / "constitution.yaml").write_text(yaml.dump(const))
+    save_entity_state(world_dir, "e1", "wander",
+                      Mind(memory="alpha beta gamma delta", facts=""))
+    data = load_world(world_dir, memory_word_limit=2)  # CLI wins over constitution's 40
+    mind = data.store.get_component("e1", Mind)
+    assert mind.memory_word_limit == 2
+    assert mind.memory == "alpha beta"  # overlay re-truncated to CLI limit
+
+
+def test_constitution_limit_used_when_no_cli(world_dir):
+    import yaml
+    const = yaml.safe_load((world_dir / "constitution.yaml").read_text())
+    const["facts_word_limit"] = 7
+    (world_dir / "constitution.yaml").write_text(yaml.dump(const))
+    data = load_world(world_dir)
+    assert data.store.get_component("e1", Mind).facts_word_limit == 7
