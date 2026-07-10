@@ -230,6 +230,20 @@
     H — thought history &nbsp;·&nbsp; ↑↓←→ — move player
   </div>
 
+  <!-- Entity profile panel (click an NPC to open) -->
+  <div id="profile-panel" style="display:none; position:absolute; top:12px; right:12px;
+       width:280px; max-height:70vh; overflow:auto; background:rgba(10,10,20,.92);
+       border:1px solid #3b0764; border-radius:8px; padding:12px 14px; color:#e5e7eb;
+       font:12px/1.5 system-ui,sans-serif; z-index:20;">
+    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+      <strong id="profile-name" style="color:#c4b5fd; font-size:14px;"></strong>
+      <button id="profile-close" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;">✕</button>
+    </div>
+    <div id="profile-job" style="color:#a78bfa; font-style:italic; margin:2px 0 8px;"></div>
+    <div id="profile-backstory" style="color:#cbd5e1;"></div>
+    <div id="profile-goal" style="color:#64748b; margin-top:8px; font-size:11px;"></div>
+  </div>
+
   <script type="module" src="/js/renderer.js"></script>
 </body>
 </html>
