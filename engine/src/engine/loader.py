@@ -6,8 +6,9 @@ import yaml
 
 from engine.entities.store import EntityStore
 from engine.entities.components import (
-    Position, Sprite, Health, PhysicsComponent, Label, Tags, AIComponent
+    Position, Sprite, Health, PhysicsComponent, Label, Tags, AIComponent, Mind
 )
+from engine.entities.persistence import load_entity_state
 from engine.physics.passability import PassabilityMap
 
 
@@ -36,7 +37,8 @@ class WorldData:
     sprite_dir: Path | None = None
 
 
-def load_world(world_dir: Path | str) -> WorldData:
+def load_world(world_dir: Path | str, memory_word_limit: int | None = None,
+               facts_word_limit: int | None = None) -> WorldData:
     """Load a world-state directory into engine inputs."""
     world_dir = Path(world_dir)
 
@@ -46,6 +48,16 @@ def load_world(world_dir: Path | str) -> WorldData:
     width = int(constitution.get("width", 32))
     height = int(constitution.get("height", 32))
     palette_used = constitution.get("palette_used", "")
+
+    # --- Word-limit resolution: CLI arg > constitution.yaml > default ---
+    def _resolve(cli_val, const_key, default):
+        if cli_val is not None:
+            return int(cli_val)
+        const_val = constitution.get(const_key)
+        return int(const_val) if const_val is not None else default
+
+    mem_limit = _resolve(memory_word_limit, "memory_word_limit", 60)
+    facts_limit = _resolve(facts_word_limit, "facts_word_limit", 30)
 
     # --- Palette ---
     palette_yaml = yaml.safe_load((world_dir / "palette.yaml").read_text()) or {}
@@ -99,6 +111,22 @@ def load_world(world_dir: Path | str) -> WorldData:
             name = agent.get("name", eid)
             behavior = agent.get("behavior", "wander_passive")
             sprite_name = _sprite_for_kind(kind)
+
+            # Seed Mind from agents.yaml (facts may be a string or a list)
+            facts_seed = agent.get("facts", "")
+            if isinstance(facts_seed, list):
+                facts_seed = " ".join(str(f) for f in facts_seed)
+            mind = Mind(memory_word_limit=mem_limit, facts_word_limit=facts_limit)
+            mind.set_facts(str(facts_seed))
+
+            # Overlay persisted evolved state (wins over seed)
+            goal = behavior
+            state = load_entity_state(world_dir, eid)
+            if state:
+                goal = state.get("goal", goal)
+                mind.set_memory(str(state.get("memory", "")))
+                mind.set_facts(str(state.get("facts", mind.facts)))
+
             store.create(eid, kind, [
                 Position(x, y),
                 Sprite(sprite_name),
@@ -106,7 +134,8 @@ def load_world(world_dir: Path | str) -> WorldData:
                 PhysicsComponent(blocking=True),
                 Label(name),
                 Tags(["agent", kind]),
-                AIComponent(agent_id=eid, goal=behavior),
+                AIComponent(agent_id=eid, goal=goal),
+                mind,
             ])
 
     # --- Sprite dir ---
