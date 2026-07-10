@@ -1,4 +1,4 @@
-palette_used: palettes/verdant
+palette_used: /home/cjds/dev/illuvutar/palettes/verdant
 tiles:
 - adjacent:
   - grass_plain

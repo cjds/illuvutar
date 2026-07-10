@@ -1,5 +1,5 @@
 height: 20
-palette_used: palettes/verdant
+palette_used: /home/cjds/dev/illuvutar/palettes/verdant
 rules:
 - No entity may enter water without the 'swimmer' tag.
 - "Ruins are old \u2014 their stories are incomplete."

@@ -9,13 +9,16 @@ Everything runs locally against [Ollama](https://ollama.com/) — no cloud API r
 
 ## Repository layout
 
-This is a monorepo with two independent Python projects plus shared assets:
+The repo root **is** the world-generation project (the god agent + TUI). The
+simulation runtime lives in `engine/` as its own self-contained project:
 
 ```
-illuvutar/            ← repo root (this folder)
-├── illuvutar/        World generation: the god agent + TUI (project "illuvutar")
-│   └── src/illuvutar/    agents/, tui/, palette/, world_state/, generation/
-├── engine/           Simulation runtime: ECS tick loop, entity AI, web server + renderer
+illuvutar/            ← repo root = the "illuvutar" world-gen project
+├── pyproject.toml
+├── src/illuvutar/    World generation: agents/, tui/, palette/, world_state/, generation/
+├── tests/
+├── engine/           Simulation runtime — its own uv project
+│   ├── pyproject.toml
 │   └── src/engine/       systems/, entities/, physics/, server/, renderer/
 ├── palettes/         Tile palettes (e.g. verdant/) the god draws from
 ├── demo_world/       A generated world (constitution, regions, tilemap, sprites)
@@ -23,13 +26,9 @@ illuvutar/            ← repo root (this folder)
 └── docs/             Design specs and implementation plans
 ```
 
-> **Why the nested `illuvutar/illuvutar/src/illuvutar/`?** The outer folder is the
-> repo, the middle is the *sub-project*, and the inner is the importable *package*
-> (standard `src/` layout). All three share the project name; none is redundant.
-
-Each sub-project (`illuvutar/` and `engine/`) is a self-contained
-[uv](https://docs.astral.sh/uv/) project with its own `pyproject.toml`, `.venv`, and
-tests.
+The root and `engine/` are independent [uv](https://docs.astral.sh/uv/) projects,
+each with its own `pyproject.toml`, `.venv`, and tests (they have very different
+dependencies — the god pulls chromadb/torch, the engine pulls fastapi).
 
 ## Prerequisites
 
@@ -44,11 +43,12 @@ tests.
 
 ### 1. Generate a world (god agent)
 
+From the repo root:
+
 ```sh
-cd illuvutar
 uv run illuvutar create-world \
-    --palette ../palettes/verdant \
-    --world ../demo_world \
+    --palette palettes/verdant \
+    --world demo_world \
     --model llama3.2
 ```
 
@@ -74,8 +74,7 @@ While the engine is running, start the god TUI with `--engine-url` to whisper to
 entities and read their thoughts:
 
 ```sh
-cd illuvutar
-uv run illuvutar create-world --palette ../palettes/verdant --world ../demo_world \
+uv run illuvutar create-world --palette palettes/verdant --world demo_world \
     --engine-url http://localhost:8080
 ```
 
@@ -94,8 +93,8 @@ queue behind the engine's entity-think flood. For a responsive god, use a GPU, r
 Each project is tested independently:
 
 ```sh
-cd illuvutar && uv run pytest      # world generation + TUI
-cd engine    && uv run pytest      # engine, physics, server
+uv run pytest                # world generation + TUI (from repo root)
+cd engine && uv run pytest   # engine, physics, server
 ```
 
 ## Design docs
