@@ -1,13 +1,13 @@
 """SpecialistAgent: a focused agent driven by a YAML mandate file."""
 from pathlib import Path
 import yaml
-import ollama
 from illuvutar.agents.tools import AgentTools
+from illuvutar.llm.client import LLMClient
 
 
 class SpecialistAgent:
-    def __init__(self, model: str, mandate_path: Path, tools: AgentTools):
-        self.model = model
+    def __init__(self, client: LLMClient, mandate_path: Path, tools: AgentTools):
+        self.client = client
         self.tools = tools
         mandate = yaml.safe_load(Path(mandate_path).read_text())
         self.mandate = mandate
@@ -36,18 +36,16 @@ class SpecialistAgent:
     def run(self) -> str:
         tool_defs = AgentTools.definitions()
         while True:
-            response = ollama.chat(
-                model=self.model, messages=self.messages, tools=tool_defs or None
-            )
-            msg = response.message
-            self.messages.append({"role": "assistant", "content": msg.content or ""})
+            msg = self.client.chat(self.messages, tools=tool_defs or None)
+            self.messages.append(msg.raw)
 
             if not msg.tool_calls:
                 return msg.content or ""
 
             for tc in msg.tool_calls:
-                result = self._dispatch(tc.function.name, tc.function.arguments)
-                self.messages.append({"role": "tool", "content": str(result)})
+                result = self._dispatch(tc.name, tc.arguments)
+                self.messages.append({"role": "tool", "tool_call_id": tc.id,
+                                      "content": str(result)})
 
     def _dispatch(self, name: str, args: dict) -> str:
         method = getattr(self.tools, name, None)
