@@ -65,3 +65,26 @@ def test_god_sanitizes_legacy_memory():
     assert all(m["role"] != "tool" for m in agent.messages)
     assert all("tool_calls" not in m for m in agent.messages)
     assert [m["content"] for m in agent.messages if m["role"] == "user"] == ["hi"]
+
+
+def test_chat_stream_emits_tool_and_message_events(mock_tools):
+    tc = ToolCall(id="c1", name="query_palette", arguments={"description": "grass"})
+    first = LLMMessage(content="", tool_calls=[tc],
+                       raw={"role": "assistant", "content": "", "tool_calls": [
+                           {"id": "c1", "type": "function",
+                            "function": {"name": "query_palette", "arguments": "{}"}}]})
+    second = LLMMessage(content="The world is complete.", tool_calls=[],
+                        raw={"role": "assistant", "content": "The world is complete."})
+    agent = GodAgent(client=_client(first, second), tools=mock_tools)
+    events = list(agent.chat_stream("build it"))
+    kinds = [e["type"] for e in events]
+    assert kinds == ["tool_call", "tool_result", "message", "done"]
+    assert events[0]["name"] == "query_palette" and events[0]["args"] == {"description": "grass"}
+    assert events[-1]["complete"] is True
+    assert agent.is_done()
+
+
+def test_chat_still_returns_final_text(mock_tools):
+    c = _client(LLMMessage(content="A forest.", tool_calls=[],
+                           raw={"role": "assistant", "content": "A forest."}))
+    assert "forest" in GodAgent(client=c, tools=mock_tools).chat("go")
