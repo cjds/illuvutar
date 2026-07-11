@@ -45,7 +45,7 @@ def test_generates_exactly_count_with_roles():
 
 def test_multiple_roles_preserved():
     c = _client([_entry(name="Vela", extra=["water-priest"])])   # primary ash-scavenger + extra
-    people = generate_populace(_ROLES[:1], _tilemap(), _REGIONS, _WALKABLE, c, count=1)
+    people = generate_populace(_ROLES, _tilemap(), _REGIONS, _WALKABLE, c, count=1)
     assert set(people[0]["roles"]) == {"ash-scavenger", "water-priest"}
 
 

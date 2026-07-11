@@ -110,7 +110,7 @@ def generate_populace(roles, tilemap, regions, walkable_tile_ids, client,
                             f"{name} has kept to the work of a {role['title'].lower()} for many years.").strip()
             goal = str(e.get("goal") or role.get("blurb", "endure")).strip()
             facts = str(e.get("facts") or f"I am {name}, a {role['title'].lower()}.").strip()
-            extra = [r for r in (e.get("extra_roles") or []) if r and r != role["id"]]
+            extra = [r for r in (e.get("extra_roles") or []) if r in role_ids and r != role["id"]]
             npc_roles = [role["id"]] + extra[:2]
             cell = place(role)
             x, y = int(cell["x"]), int(cell["y"])
