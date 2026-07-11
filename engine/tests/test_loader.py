@@ -142,7 +142,7 @@ def test_entity_gets_empty_profile_by_default(world_dir):
     data = load_world(world_dir)
     prof = data.store.get_component("e1", Profile)
     assert prof is not None
-    assert prof.job == "" and prof.backstory == ""
+    assert prof.roles == [] and prof.backstory == ""
 
 
 def test_profile_loaded_from_agents_yaml(world_dir):
@@ -154,5 +154,25 @@ def test_profile_loaded_from_agents_yaml(world_dir):
     ]))
     data = load_world(world_dir)
     prof = data.store.get_component("e1", Profile)
-    assert prof.job == "Blacksmith"
+    assert prof.roles == ["Blacksmith"]
     assert "fever winter" in prof.backstory
+
+
+def test_profile_roles_from_list(world_dir):
+    import yaml
+    (world_dir / "agents.yaml").write_text(yaml.dump([
+        {"id": "e1", "kind": "humanoid", "x": 1, "y": 1, "name": "Vela",
+         "behavior": "endure", "roles": ["water-priest", "midwife"], "backstory": "b"}]))
+    from engine.entities.components import Profile
+    prof = load_world(world_dir).store.get_component("e1", Profile)
+    assert prof.roles == ["water-priest", "midwife"]
+
+
+def test_profile_legacy_job_string(world_dir):
+    import yaml
+    (world_dir / "agents.yaml").write_text(yaml.dump([
+        {"id": "e1", "kind": "humanoid", "x": 1, "y": 1, "name": "Bram",
+         "behavior": "forge", "job": "Blacksmith"}]))
+    from engine.entities.components import Profile
+    prof = load_world(world_dir).store.get_component("e1", Profile)
+    assert prof.roles == ["Blacksmith"]

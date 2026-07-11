@@ -1,24 +1,34 @@
-"""Generate a town populace: one NPC per job, placed on walkable tiles, with per-NPC
-LLM-generated backstories and a deterministic fallback so it never fails."""
-import json
-import ollama
-from illuvutar.generation.jobs import Job, name_pool
+"""Generate a world's populace from god-authored roles: batched, tool-free LLM
+generation with deterministic placement and fallback. Never raises."""
+from illuvutar.llm.client import parse_json
 
-_KIND_FOR_JOB = {"scholar": "scholar", "watchman": "guardian"}  # reuse existing sprites
+_NAME_A = ["Vel", "Bram", "Sef", "Cor", "Mira", "Dun", "Hollis", "Wynn", "Tam", "Rue", "Alder", "Isa"]
+_NAME_B = ["a", "en", "ric", "wyn", "eth", "os", "il", "ara", "und", "is", "or", "ella"]
+
+
+def _fallback_name(i: int) -> str:
+    return f"{_NAME_A[i % len(_NAME_A)]}{_NAME_B[(i // len(_NAME_A)) % len(_NAME_B)]}"
 
 
 def _truncate_words(text: str, limit: int) -> str:
     return " ".join((text or "").split()[:limit])
 
 
-def _region_ids_for_biome(regions: list[dict], biome: str) -> set[int]:
-    # The tilemap's `region` field is the positional index of the region (see run_wfc,
-    # which builds Region(id=i, ...) from enumerate). Match on that index, NOT a declared
-    # `id` key, and never raise on a malformed region entry.
-    return {i for i, r in enumerate(regions) if isinstance(r, dict) and r.get("biome") == biome}
+def _regions_for_locale(regions: list[dict], locale: str) -> set[int]:
+    """Positional indices of regions whose name matches the role's free-text locale."""
+    loc = (locale or "").strip().lower()
+    if not loc:
+        return set()
+    out = set()
+    for i, r in enumerate(regions):
+        if isinstance(r, dict):
+            name = str(r.get("name", "")).strip().lower()
+            if name and (name in loc or loc in name):
+                out.add(i)
+    return out
 
 
-def _walkable_cells(tilemap: list[dict], region_ids: set[int], walkable: set[str]) -> list[dict]:
+def _walkable_cells(tilemap, region_ids, walkable):
     out = []
     for c in tilemap:
         if c.get("tile_id") not in walkable:
@@ -32,76 +42,85 @@ def _walkable_cells(tilemap: list[dict], region_ids: set[int], walkable: set[str
     return out
 
 
-def _prompt(job: Job, world_name: str, world_tone: str) -> str:
-    return (
-        f"Invent a resident of the town of {world_name or 'the crossroads'}.\n"
-        f"Tone: {world_tone or 'a quiet world of forest, ruin, and still water'}.\n"
-        f"They are the {job.title} at {job.site} — they {job.blurb}.\n"
-        "Respond with ONLY valid JSON (no markdown):\n"
-        '{"name": "...", "backstory": "2-3 vivid sentences of their history", '
-        '"goal": "their current aim", "facts": "one line of self-belief"}'
-    )
+def _batch_prompt(slots, world_name, world_tone):
+    lines = [
+        f"You are peopling the world of {world_name or 'this land'}.",
+        f"Tone: {world_tone or 'a strange and specific place'}.",
+        "Invent one distinct resident for each numbered role below.",
+        "Respond with ONLY a JSON array, one object per number, in order:",
+        '[{"name": "...", "extra_roles": ["<other role ids they also hold, 0-2>"], '
+        '"backstory": "2-3 vivid sentences", "goal": "their current aim", '
+        '"facts": "one line of self-belief"}]',
+        "Roles:",
+    ]
+    for n, (role, _ids) in enumerate(slots, 1):
+        lines.append(f"{n}. {role['title']} — {role.get('blurb','')} "
+                     f"(role id: {role['id']}; other ids available: {_ids})")
+    return "\n".join(lines)
 
 
-def generate_populace(
-    jobs: list[Job],
-    tilemap: list[dict],
-    regions: list[dict],
-    walkable_tile_ids: set[str],
-    model: str,
-    world_name: str = "",
-    world_tone: str = "",
-    facts_word_limit: int = 30,
-    backstory_word_limit: int = 60,
-) -> list[dict]:
+def generate_populace(roles, tilemap, regions, walkable_tile_ids, client,
+                      world_name: str = "", world_tone: str = "",
+                      count: int = 40, batch_size: int = 12,
+                      facts_word_limit: int = 30, backstory_word_limit: int = 60):
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        count = 40
+    count = max(1, min(count, 1000))
+    roles = [r for r in (roles or []) if isinstance(r, dict) and r.get("id")]
+    if not roles:
+        roles = [{"id": "townsfolk", "title": "Townsfolk", "locale": "", "blurb": "lives here"}]
+    role_ids = {r["id"] for r in roles}
     all_walkable = [c for c in tilemap if c.get("tile_id") in walkable_tile_ids]
     used: set[tuple[int, int]] = set()
-    people: list[dict] = []
 
-    for i, job in enumerate(jobs):
-        # --- placement (deterministic): prefer the job's biome region ---
-        region_ids = _region_ids_for_biome(regions, job.biome)
+    def place(role):
+        region_ids = _regions_for_locale(regions, role.get("locale", ""))
         candidates = _walkable_cells(tilemap, region_ids, walkable_tile_ids) or all_walkable
-        cell = None
         for c in candidates:
             if (c["x"], c["y"]) not in used:
-                cell = c
-                break
-        if cell is None:  # every candidate taken — reuse any free walkable cell
-            for c in all_walkable:
-                if (c["x"], c["y"]) not in used:
-                    cell = c
-                    break
-        if cell is None:  # map has fewer walkable tiles than jobs — stack as last resort
-            cell = (candidates or all_walkable or [{"x": 0, "y": 0}])[0]
-        x, y = int(cell["x"]), int(cell["y"])
-        used.add((x, y))
+                return c
+        for c in all_walkable:
+            if (c["x"], c["y"]) not in used:
+                return c
+        return (candidates or all_walkable or [{"x": 0, "y": 0}])[0]
 
-        # --- generation (per-NPC LLM with deterministic fallback) ---
-        pool = name_pool(job.id)
-        name = pool[i % len(pool)]
-        backstory = f"{name} has served as the {job.title} of {job.site} for many years."
-        goal = job.blurb
-        facts = f"I am {name}, the {job.title}."
+    people = []
+    for start in range(0, count, batch_size):
+        n = min(batch_size, count - start)
+        slots = []
+        for j in range(n):
+            role = roles[(start + j) % len(roles)]
+            other = sorted(role_ids - {role["id"]})
+            slots.append((role, other))
+        # one tool-free call per batch
+        entries = []
         try:
-            resp = ollama.chat(model=model, messages=[{"role": "user",
-                     "content": _prompt(job, world_name, world_tone)}])
-            data = json.loads((resp.message.content or "").strip().strip("`"))
-            name = str(data.get("name") or name).strip() or name
-            backstory = str(data.get("backstory") or backstory).strip() or backstory
-            goal = str(data.get("goal") or goal).strip() or goal
-            facts = str(data.get("facts") or facts).strip() or facts
+            data = parse_json(client.complete(_batch_prompt(slots, world_name, world_tone)))
+            if isinstance(data, list):
+                entries = data
         except Exception:
-            pass  # deterministic fallback values already set
+            entries = []
 
-        people.append({
-            "id": job.id,
-            "kind": _KIND_FOR_JOB.get(job.id, "humanoid"),
-            "x": x, "y": y,
-            "name": name,
-            "job": job.title,
-            "backstory": _truncate_words(backstory, backstory_word_limit),
-            "behavior": goal,
-            "facts": _truncate_words(facts, facts_word_limit),
-        })
+        for j, (role, other) in enumerate(slots):
+            i = start + j
+            e = entries[j] if j < len(entries) and isinstance(entries[j], dict) else {}
+            name = str(e.get("name") or _fallback_name(i)).strip() or _fallback_name(i)
+            backstory = str(e.get("backstory") or
+                            f"{name} has kept to the work of a {role.get('title', role['id']).lower()} for many years.").strip()
+            goal = str(e.get("goal") or role.get("blurb", "endure")).strip()
+            facts = str(e.get("facts") or f"I am {name}, a {role.get('title', role['id']).lower()}.").strip()
+            extra = [r for r in (e.get("extra_roles") or []) if r in role_ids and r != role["id"]]
+            npc_roles = [role["id"]] + extra[:2]
+            cell = place(role)
+            x, y = int(cell["x"]), int(cell["y"])
+            used.add((x, y))
+            people.append({
+                "id": f"e_{i}", "kind": "humanoid", "x": x, "y": y, "name": name,
+                "roles": npc_roles,
+                "backstory": _truncate_words(backstory, backstory_word_limit),
+                "behavior": goal,
+                "facts": _truncate_words(facts, facts_word_limit),
+            })
     return people

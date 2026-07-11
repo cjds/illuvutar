@@ -114,10 +114,12 @@ def create_app(
         prof = store.get_component(entity_id, Profile)
         mind = store.get_component(entity_id, Mind)
         ai = store.get_component(entity_id, AIComponent)
+        roles = prof.roles if prof else []
         return {
             "id": entity_id,
             "name": label.name if label else entity_id,
-            "job": prof.job if prof else "",
+            "roles": roles,
+            "job": ", ".join(roles),
             "backstory": prof.backstory if prof else "",
             "facts": mind.facts if mind else "",
             "goal": ai.goal if ai else "",

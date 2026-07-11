@@ -11,7 +11,7 @@ def tools(tmp_path):
     writer.read.return_value = {"world_name": "Test"}
     rag = MagicMock()
     rag.query.return_value = []
-    return AgentTools(writer=writer, rag=rag, tiles=[], palette_dir=tmp_path)
+    return AgentTools(writer=writer, rag=rag, tiles=[], palette_dir=tmp_path, client=MagicMock())
 
 
 def test_read_file_reads_world_state(tools, tmp_path):

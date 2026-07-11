@@ -129,7 +129,7 @@ class OllamaAISystem:
         memory_words = mind.memory_word_limit if mind else 60
 
         profile = self._store.get_component(entity_id, Profile)
-        job = profile.job if profile and profile.job else kind
+        roles_txt = ", ".join(profile.roles) if profile and profile.roles else kind
         backstory = profile.backstory if profile and profile.backstory else "unknown"
 
         prompt = _THINK_PROMPT.format(
@@ -138,7 +138,7 @@ class OllamaAISystem:
             context="A 2D world of forest, ruins, and open plain.",
             facts=facts_text, memory=memory_text,
             facts_words=facts_words, memory_words=memory_words,
-            job=job, backstory=backstory,
+            job=roles_txt, backstory=backstory,
         ) + whisper_ctx
 
         try:

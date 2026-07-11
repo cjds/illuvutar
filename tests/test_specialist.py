@@ -1,7 +1,8 @@
 import pytest
 import yaml
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from illuvutar.agents.specialist import SpecialistAgent
+from illuvutar.llm.client import LLMMessage
 
 @pytest.fixture
 def mandate_file(tmp_path):
@@ -22,13 +23,14 @@ def test_specialist_runs_and_returns_text(mandate_file, tmp_path):
     tools.write_world_state.return_value = "Written factions successfully."
     tools.query_palette.return_value = ""
 
-    with patch("illuvutar.agents.specialist.ollama") as mock_ollama:
-        msg = MagicMock()
-        msg.content = "I have created two rival factions."
-        msg.tool_calls = []
-        mock_ollama.chat.return_value = MagicMock(message=msg)
+    client = MagicMock()
+    client.chat.return_value = LLMMessage(
+        content="I have created two rival factions.",
+        tool_calls=[],
+        raw={"role": "assistant", "content": "I have created two rival factions."},
+    )
 
-        agent = SpecialistAgent(model="llama3.2", mandate_path=mandate_file, tools=tools)
-        result = agent.run()
-        assert isinstance(result, str)
-        assert len(result) > 0
+    agent = SpecialistAgent(client=client, mandate_path=mandate_file, tools=tools)
+    result = agent.run()
+    assert isinstance(result, str)
+    assert len(result) > 0

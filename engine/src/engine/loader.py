@@ -127,7 +127,11 @@ def load_world(world_dir: Path | str, memory_word_limit: int | None = None,
                 mind.set_memory(str(state.get("memory", "")))
                 mind.set_facts(str(state.get("facts", mind.facts)))
 
-            job = str(agent.get("job", ""))
+            raw_roles = agent.get("roles")
+            if raw_roles is None and agent.get("job"):
+                raw_roles = [agent["job"]]            # legacy single-job worlds
+            roles = [str(r) for r in raw_roles] if isinstance(raw_roles, list) else (
+                [str(raw_roles)] if raw_roles else [])
             backstory = str(agent.get("backstory", ""))
 
             store.create(eid, kind, [
@@ -139,7 +143,7 @@ def load_world(world_dir: Path | str, memory_word_limit: int | None = None,
                 Tags(["agent", kind]),
                 AIComponent(agent_id=eid, goal=goal),
                 mind,
-                Profile(job=job, backstory=backstory),
+                Profile(roles=roles, backstory=backstory),
             ])
 
     # --- Sprite dir ---
