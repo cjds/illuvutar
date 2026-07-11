@@ -23,6 +23,8 @@ class SimHolder:
         return out
 
     def start(self) -> bool:
+        if self._app is not None:
+            return True   # already running for this world — idempotent, no leaked loop
         if self.missing():
             return False
         data = load_world(self.world_dir)
@@ -32,7 +34,7 @@ class SimHolder:
             width=data.width, height=data.height, sprite_dir=data.sprite_dir,
             ai_model=self.ai_model, world_dir=self.world_dir,
         )
-        asyncio.get_event_loop().create_task(app.state.tick_loop.start())
+        asyncio.get_running_loop().create_task(app.state.tick_loop.start())
         self._app = app
         return True
 
