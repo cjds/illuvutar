@@ -63,7 +63,10 @@ def parse_json(text: str):
     """Best-effort JSON extraction that tolerates code fences and surrounding prose."""
     t = (text or "").strip()
     if t.startswith("```"):
-        t = t.split("\n", 1)[1] if "\n" in t else ""
+        if "\n" in t:
+            t = t.split("\n", 1)[1]
+        else:
+            t = t[3:]
         if t.endswith("```"):
             t = t[: t.rfind("```")]
     t = t.strip().strip("`").strip()

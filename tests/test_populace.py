@@ -68,3 +68,12 @@ def test_string_count_and_over_range_handled():
     c = _client([_entry() for _ in range(12)])
     people = generate_populace(_ROLES, _tilemap(), _REGIONS, _WALKABLE, c, count="4")
     assert len(people) == 4
+
+
+def test_malformed_roles_never_raise():
+    from unittest.mock import MagicMock
+    c = MagicMock(); c.complete.return_value = "not json"
+    bad = [{"title": "No Id"}, 5, {"id": "ok", "title": "Ok", "locale": "", "blurb": "b"}]
+    people = generate_populace(bad, _tilemap(), _REGIONS, _WALKABLE, c, count=4)
+    assert len(people) == 4
+    assert all(p["roles"] and p["name"] for p in people)

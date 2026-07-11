@@ -68,6 +68,7 @@ def generate_populace(roles, tilemap, regions, walkable_tile_ids, client,
     except (TypeError, ValueError):
         count = 40
     count = max(1, min(count, 1000))
+    roles = [r for r in (roles or []) if isinstance(r, dict) and r.get("id")]
     if not roles:
         roles = [{"id": "townsfolk", "title": "Townsfolk", "locale": "", "blurb": "lives here"}]
     role_ids = {r["id"] for r in roles}
@@ -107,9 +108,9 @@ def generate_populace(roles, tilemap, regions, walkable_tile_ids, client,
             e = entries[j] if j < len(entries) and isinstance(entries[j], dict) else {}
             name = str(e.get("name") or _fallback_name(i)).strip() or _fallback_name(i)
             backstory = str(e.get("backstory") or
-                            f"{name} has kept to the work of a {role['title'].lower()} for many years.").strip()
+                            f"{name} has kept to the work of a {role.get('title', role['id']).lower()} for many years.").strip()
             goal = str(e.get("goal") or role.get("blurb", "endure")).strip()
-            facts = str(e.get("facts") or f"I am {name}, a {role['title'].lower()}.").strip()
+            facts = str(e.get("facts") or f"I am {name}, a {role.get('title', role['id']).lower()}.").strip()
             extra = [r for r in (e.get("extra_roles") or []) if r in role_ids and r != role["id"]]
             npc_roles = [role["id"]] + extra[:2]
             cell = place(role)

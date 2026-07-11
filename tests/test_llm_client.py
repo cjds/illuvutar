@@ -53,3 +53,20 @@ def test_parse_json_strips_fences_and_finds_array():
     assert parse_json('```json\n{"a": 1}\n```') == {"a": 1}
     assert parse_json('here you go: [{"name": "x"}] cheers') == [{"name": "x"}]
     assert parse_json("not json at all") is None
+
+
+def test_parse_json_single_line_fence():
+    assert parse_json('```json {"a": 1}```') == {"a": 1}
+
+
+def test_complete_returns_plain_text():
+    with patch("illuvutar.llm.client.OpenAI", return_value=_fake_openai(content="hi there")):
+        assert LLMClient().complete("say hi") == "hi there"
+
+
+def test_chat_tolerates_malformed_tool_arguments():
+    from unittest.mock import MagicMock
+    tc = MagicMock(); tc.id = "c"; tc.function.name = "f"; tc.function.arguments = "{not json"
+    with patch("illuvutar.llm.client.OpenAI", return_value=_fake_openai(content="", tool_calls=[tc])):
+        m = LLMClient().chat([{"role": "user", "content": "x"}])
+    assert m.tool_calls[0].arguments == {}
