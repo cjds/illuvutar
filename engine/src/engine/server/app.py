@@ -50,11 +50,13 @@ def create_app(
         tick_loop.stop()
 
     @app.get("/", response_class=HTMLResponse)
-    async def root():
+    async def root(request: Request):
         html_path = RENDERER_DIR / "index.html"
-        if html_path.exists():
-            return html_path.read_text()
-        return "<html><body><h1>Renderer not found</h1></body></html>"
+        if not html_path.exists():
+            return "<html><body><h1>Renderer not found</h1></body></html>"
+        base = request.scope.get("root_path", "")
+        inject = f'<script>window.__BASE__ = "{base}";</script>'
+        return html_path.read_text().replace("</head>", inject + "</head>", 1)
 
     js_dir = RENDERER_DIR / "js"
     if js_dir.is_dir():

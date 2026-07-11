@@ -24,6 +24,12 @@ def test_root_returns_html(client):
     assert "text/html" in response.headers["content-type"]
 
 
+def test_root_injects_empty_base_standalone(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'window.__BASE__ = ""' in r.text
+
+
 def test_post_command_accepted(client):
     toml_cmd = '''[command]
 tick_submitted = 0
