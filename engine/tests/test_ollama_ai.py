@@ -214,7 +214,7 @@ async def test_prompt_includes_job_and_backstory(passability, tmp_path):
         AIComponent(agent_id="smith", goal="forge"),
         Tags(["agent"]), PhysicsComponent(),
         Mind(memory="", facts=""),
-        Profile(job="Blacksmith", backstory="Took the forge after the fever winter."),
+        Profile(roles=["Blacksmith"], backstory="Took the forge after the fever winter."),
     ])
     sys = OllamaAISystem(s, passability, world_dir=tmp_path)
     captured = {}

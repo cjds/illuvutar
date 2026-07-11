@@ -94,5 +94,5 @@ class Mind:
 
 @dataclass
 class Profile:
-    job: str = ""
+    roles: list[str] = field(default_factory=list)
     backstory: str = ""
