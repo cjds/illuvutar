@@ -4,12 +4,14 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from studio.sim import SimHolder
 
 WEB_DIR = Path(__file__).parent.parent.parent / "web"
 
 
 def create_studio_app(session, world_dir=None, palette_dir=None, ai_model="llama3.2") -> FastAPI:
     app = FastAPI()
+    sim = SimHolder(world_dir, ai_model) if world_dir else None
 
     @app.get("/", response_class=HTMLResponse)
     async def shell():
@@ -47,6 +49,20 @@ def create_studio_app(session, world_dir=None, palette_dir=None, ai_model="llama
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+    @app.post("/sim/start")
+    async def sim_start():
+        if sim is None:
+            return {"ready": False, "missing": ["world"]}
+        missing = sim.missing()
+        if missing:
+            return {"ready": False, "missing": missing}
+        sim.start()
+        return {"ready": True, "missing": []}
+
     if WEB_DIR.is_dir():
         app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
+
+    if sim is not None:
+        app.mount("/sim", sim)
+
     return app

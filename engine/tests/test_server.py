@@ -18,6 +18,11 @@ def client():
         yield c
 
 
+def test_create_app_exposes_tick_loop():
+    app = _make_app()
+    assert hasattr(app.state, "tick_loop")
+
+
 def test_root_returns_html(client):
     response = client.get("/")
     assert response.status_code == 200

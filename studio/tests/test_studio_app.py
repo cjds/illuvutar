@@ -22,3 +22,10 @@ def test_forge_message_triggers_turn(fake_session, monkeypatch):
     c = TestClient(create_studio_app(fake_session))
     assert c.post("/forge/message", json={"text": "build"}).status_code == 200
     assert c.post("/forge/message", json={"text": ""}).status_code == 400
+
+
+def test_sim_start_needs_tilemap(tmp_path, fake_session):
+    c = TestClient(create_studio_app(fake_session, world_dir=tmp_path))
+    r = c.post("/sim/start")
+    assert r.status_code == 200 and r.json()["ready"] is False
+    assert "tilemap" in r.json()["missing"]

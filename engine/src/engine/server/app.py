@@ -40,6 +40,7 @@ def create_app(
         width=width, height=height, frame_callback=on_frame,
         ai_model=ai_model, world_dir=world_dir,
     )
+    app.state.tick_loop = tick_loop
 
     @app.on_event("startup")
     async def startup():
