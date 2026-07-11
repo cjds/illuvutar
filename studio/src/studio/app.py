@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 WEB_DIR = Path(__file__).parent.parent.parent / "web"
 
 
-def create_studio_app(session) -> FastAPI:
+def create_studio_app(session, world_dir=None, palette_dir=None, ai_model="llama3.2") -> FastAPI:
     app = FastAPI()
 
     @app.get("/", response_class=HTMLResponse)
