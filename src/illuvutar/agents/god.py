@@ -83,9 +83,10 @@ class GodAgent:
                 self.messages.append({"role": "tool", "tool_call_id": tc.id,
                                       "content": str(result)})
                 yield {"type": "tool_result", "name": tc.name, "result": str(result)}
-        yield {"type": "done", "complete": self._done}
+        # Persist before the terminal event so a consumer that stops on "done" still saves.
         if self._memory:
             self._memory.save(self.messages)
+        yield {"type": "done", "complete": self._done}
 
     def _dispatch(self, name: str, args: dict) -> str:
         method = getattr(self.tools, name, None)
