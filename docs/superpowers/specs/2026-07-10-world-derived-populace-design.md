@@ -74,6 +74,12 @@ class LLMClient:
 - **Nothing else in the codebase imports a provider SDK directly** for the god path.
   (The engine's per-tick `ollama_ai` stays on ollama for now; it can adopt this client
   later — out of scope.)
+- **This makes world-generation model-independent, not just the populace.** Every god
+  action — authoring the constitution, regions, WFC orchestration, roles, and the populace
+  — flows through this one client, so the entire generator can run on any provider by
+  config. The *specialist* pattern (a focused sub-agent per facet) is applied here only to
+  the populace; extending it to other facets (regions, history, factions) is the natural
+  follow-up described below.
 
 ### 2. God authors roles (`roles.yaml`)
 
@@ -197,10 +203,21 @@ Output entry:
 - `agents.yaml` schema: `job` → `roles`; loader accepts both.
 - Add `openai` to `pyproject.toml` dependencies.
 
+## Natural follow-up: specialist-driven world generation
+
+This spec brings model-independence to the whole generator and the specialist pattern to
+the populace. The obvious next spec applies the **same client + specialist pattern to
+every world facet** — a geography/regions specialist, a history-and-factions specialist,
+each a focused sub-agent the god orchestrates, so the god composes a world from reliable
+specialists instead of writing every file itself in one fragile loop. It reuses
+`LLMClient` and the `populate_world`-style tool shape verbatim; only the mandates differ.
+Kept separate to keep this plan focused and shippable.
+
 ## Out of scope (YAGNI)
 
+- Facet specialists for regions/history/factions (the follow-up above).
 - Switching the engine's per-tick NPC thinking to the new client (it can, later).
-- Per-district specialists (one populace specialist for now).
+- Per-district populace specialists (one populace specialist for now).
 - Role→sprite mapping (default `humanoid`).
 - A UI to edit roles/people (the god + `write_world_state` suffice).
 - Streaming/parallel batch generation (sequential batches are enough).
