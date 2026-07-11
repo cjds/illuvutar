@@ -61,7 +61,7 @@ function openHistory() {
   renderHistoryList();
 
   // Refresh from server — older thoughts the server has that we may have missed
-  fetch('/thoughts')
+  fetch((window.__BASE__||'') + '/thoughts')
     .then(r => r.json())
     .then(serverThoughts => {
       const seen = new Set(thoughtHistory.map(t => `${t.entity_id}:${t.tick}:${t.text}`));

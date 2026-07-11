@@ -24,7 +24,7 @@ export function setupProfilePanel(canvas, camera, getFrame) {
       }
     }
     if (!hit) { hide(); return; }
-    fetch(`/entity/${encodeURIComponent(hit.id)}/profile`)
+    fetch(`${window.__BASE__||''}/entity/${encodeURIComponent(hit.id)}/profile`)
       .then((r) => (r.ok ? r.json() : null))
       .then((p) => {
         if (!p) return;

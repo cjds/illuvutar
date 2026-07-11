@@ -55,28 +55,38 @@ class GodAgent:
         return out
 
     def chat(self, human_message: str) -> str:
-        self.messages.append({"role": "user", "content": human_message})
-        response = self._run_loop()
-        if self._memory:
-            self._memory.save(self.messages)
-        return response
+        text = ""
+        for event in self.chat_stream(human_message):
+            if event["type"] == "message":
+                text = event["text"]
+        return text
 
     def is_done(self) -> bool:
         return self._done
 
-    def _run_loop(self) -> str:
+    def chat_stream(self, human_message: str):
+        self.messages.append({"role": "user", "content": human_message})
         tool_defs = AgentTools.definitions()
         while True:
             msg = self.client.chat(self.messages, tools=tool_defs or None)
             self.messages.append(msg.raw)
             if not msg.tool_calls:
-                if msg.content and "world is complete" in msg.content.lower():
-                    self._done = True
-                return msg.content or ""
+                text = msg.content or ""
+                if text:
+                    yield {"type": "message", "text": text}
+                    if "world is complete" in text.lower():
+                        self._done = True
+                break
             for tc in msg.tool_calls:
+                yield {"type": "tool_call", "name": tc.name, "args": tc.arguments}
                 result = self._dispatch(tc.name, tc.arguments)
                 self.messages.append({"role": "tool", "tool_call_id": tc.id,
                                       "content": str(result)})
+                yield {"type": "tool_result", "name": tc.name, "result": str(result)}
+        # Persist before the terminal event so a consumer that stops on "done" still saves.
+        if self._memory:
+            self._memory.save(self.messages)
+        yield {"type": "done", "complete": self._done}
 
     def _dispatch(self, name: str, args: dict) -> str:
         method = getattr(self.tools, name, None)

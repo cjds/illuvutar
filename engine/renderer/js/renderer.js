@@ -7,6 +7,8 @@ import { renderEffects } from './effect_layer.js';
 import { renderUI, setupUI } from './ui_layer.js';
 import { setupProfilePanel } from './profile_panel.js';
 
+const BASE = window.__BASE__ || "";
+
 const worldCanvas = document.getElementById('world-canvas');
 const effectCanvas = document.getElementById('effect-canvas');
 const uiLayer = document.getElementById('ui-layer');
@@ -23,7 +25,7 @@ function resize() {
 resize();
 window.addEventListener('resize', resize);
 
-const atlas = new SpriteAtlas('/sprites');
+const atlas = new SpriteAtlas(BASE + '/sprites');
 const camera = new Camera(32);
 let tick = 0;
 let currentFrame = null;
@@ -32,7 +34,7 @@ setupProfilePanel(worldCanvas, camera, () => currentFrame);
 const tickEl = document.getElementById('tick-display');
 const connEl = document.getElementById('conn-status');
 
-const evtSource = new EventSource('/frames');
+const evtSource = new EventSource(BASE + '/frames');
 evtSource.onmessage = (evt) => {
   if (evt.data === 'ping') return;
   const frame = parseFrame(evt.data);
@@ -59,7 +61,7 @@ evtSource.onopen = () => {
 document.addEventListener('keydown', (e) => {
   const map = { ArrowUp: 'north', ArrowDown: 'south', ArrowLeft: 'west', ArrowRight: 'east' };
   if (!map[e.key]) return;
-  fetch('/command', {
+  fetch(BASE + '/command', {
     method: 'POST',
     body: `[command]\ntick_submitted = ${tick}\nagent_id = "player"\naction = "move"\ndirection = "${map[e.key]}"\n`,
     headers: { 'Content-Type': 'text/plain' },

@@ -1,14 +1,5 @@
 """CLI entry point for illuvutar world generation."""
 import click
-from pathlib import Path
-from illuvutar.palette.indexer import index_palette
-from illuvutar.palette.rag import PaletteRAG
-from illuvutar.world_state.writer import WorldStateWriter
-from illuvutar.agents.tools import AgentTools
-from illuvutar.agents.god import GodAgent
-from illuvutar.agents.memory import GodMemory
-from illuvutar.llm.client import LLMClient
-from illuvutar.tui.app import GodChatApp
 
 
 @click.group()
@@ -17,34 +8,6 @@ def main():
 
 
 @main.command()
-@click.option("--palette", required=True, type=click.Path(exists=True), help="Path to palette directory")
-@click.option("--world", default="world", help="Output world directory")
-@click.option("--model", default="llama3.2", help="LLM model name")
-@click.option("--engine-url", default="", help="Running engine URL for entity whispers, e.g. http://localhost:8080")
-@click.option("--llm-endpoint", default=None, help="OpenAI-compatible base URL (default local ollama)")
-@click.option("--llm-api-key", default=None, help="API key for the endpoint")
-def create_world(palette, world, model, engine_url, llm_endpoint, llm_api_key):
-    """Start the god agent to generate a new world."""
-    palette_dir = Path(palette)
-    world_dir = Path(world)
-
-    click.echo(f"Indexing palette from {palette_dir}...")
-    tiles = index_palette(palette_dir)
-    click.echo(f"Found {len(tiles)} tiles. Building RAG index...")
-
-    rag_dir = world_dir / ".rag"
-    rag = PaletteRAG.build(tiles, persist_dir=str(rag_dir))
-
-    writer = WorldStateWriter(world_dir)
-    client = LLMClient(endpoint=llm_endpoint, model=model, api_key=llm_api_key)
-    tools = AgentTools(writer=writer, rag=rag, tiles=tiles, palette_dir=palette_dir, client=client)
-
-    # God memory persists at world_dir/.god_memory.json
-    memory = GodMemory(world_dir / ".god_memory.json")
-    god = GodAgent(client=client, tools=tools, memory=memory)
-
-    if memory.load():
-        click.echo("Resuming previous god session from memory.")
-
-    app = GodChatApp(god_agent=god, writer=writer, engine_url=engine_url)
-    app.run()
+def create_world():
+    """Deprecated — build worlds in the studio: `studio --palette <dir> --world <dir>`."""
+    raise SystemExit("world-building moved to the studio: `studio --palette <dir> --world <dir>`")
