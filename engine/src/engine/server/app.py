@@ -132,4 +132,18 @@ def create_app(
     async def get_thoughts():
         return tick_loop.recent_thoughts()
 
+    @app.post("/pause")
+    async def pause():
+        tick_loop.pause()
+        return {"paused": True}
+
+    @app.post("/resume")
+    async def resume():
+        tick_loop.resume()
+        return {"paused": False}
+
+    @app.get("/status")
+    async def status():
+        return {"paused": tick_loop.paused, "tick": tick_loop.tick}
+
     return app
