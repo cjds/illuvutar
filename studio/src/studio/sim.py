@@ -22,11 +22,7 @@ class SimHolder:
                 out.append(name)
         return out
 
-    def start(self) -> bool:
-        if self._app is not None:
-            return True   # already running for this world — idempotent, no leaked loop
-        if self.missing():
-            return False
+    def _build(self) -> None:
         data = load_world(self.world_dir)
         app = create_app(
             store=data.store, passability=data.passability, palette=data.palette,
@@ -36,6 +32,24 @@ class SimHolder:
         )
         asyncio.get_running_loop().create_task(app.state.tick_loop.start())
         self._app = app
+
+    def start(self) -> bool:
+        if self._app is not None:
+            return True   # already running for this world — idempotent, no leaked loop
+        if self.missing():
+            return False
+        self._build()
+        return True
+
+    def reload(self) -> bool:
+        if self.missing():
+            return False
+        if self._app is not None:
+            try:
+                self._app.state.tick_loop.stop()
+            except Exception:
+                pass
+        self._build()
         return True
 
     async def __call__(self, scope, receive, send):
