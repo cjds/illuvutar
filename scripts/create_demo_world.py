@@ -2,7 +2,7 @@
 """Create a minimal demo world for testing the simulation engine.
 
 Usage: python3 scripts/create_demo_world.py [--out demo_world]
-Produces a world/ directory loadable by `illuvutar-engine`.
+Produces a world/ directory playable via `studio --world <dir>`.
 """
 import argparse
 import json

@@ -5,30 +5,30 @@ LLM **god agent** builds a world from a tile palette; a real-time **engine** run
 the simulation, where each entity thinks, speaks, and moves via its own LLM calls;
 and a browser renderer streams the world and the entities' inner thoughts as it plays.
 
-Everything runs locally against [Ollama](https://ollama.com/) — no cloud API required.
+It all runs from **one command** — `studio` — a single web app where you build a
+world by chatting with the god ("Forge"), then hit ▶ to play it. By default
+everything runs locally against [Ollama](https://ollama.com/); an OpenAI-compatible
+cloud endpoint can be used instead.
 
 ## Repository layout
 
-The repo root **is** the world-generation project (the god agent + TUI). The
-simulation runtime lives in `engine/` as its own self-contained project:
+One `uv` project, one package, three subpackages:
 
 ```
-illuvutar/            ← repo root = the "illuvutar" world-gen project
+illuvutar/
 ├── pyproject.toml
-├── src/illuvutar/    World generation: agents/, tui/, palette/, world_state/, generation/
-├── tests/
-├── engine/           Simulation runtime — its own uv project
-│   ├── pyproject.toml
-│   └── src/engine/       systems/, entities/, physics/, server/, renderer/
-├── palettes/         Tile palettes (e.g. verdant/) the god draws from
-├── demo_world/       A generated world (constitution, regions, tilemap, sprites)
-├── scripts/          Helpers (create_demo_world.py, generate_sprites.py)
-└── docs/             Design specs and implementation plans
+├── src/illuvutar/
+│   ├── god/         World generation: agents/, generation/, palette/, world_state/, llm/
+│   ├── engine/      Simulation runtime — systems/, entities/, physics/, wrl/, server/
+│   │   └── renderer/    Browser game HUD (canvas viewport + thought feed)
+│   └── studio/      The web app: FastAPI "Forge" chat, mounts the engine sim at /sim
+│       └── web/         Forge frontend (index.html, forge.js, studio.css)
+├── palettes/        Tile palettes (e.g. verdant/) the god draws from
+├── demo_world/      A generated world (constitution, regions, tilemap, sprites)
+├── scripts/         Helpers (create_demo_world.py, generate_sprites.py)
+├── tests/           god/, engine/, studio/ suites
+└── docs/            Design specs and implementation plans
 ```
-
-The root and `engine/` are independent [uv](https://docs.astral.sh/uv/) projects,
-each with its own `pyproject.toml`, `.venv`, and tests (they have very different
-dependencies — the god pulls chromadb/torch, the engine pulls fastapi).
 
 ## Prerequisites
 
@@ -38,66 +38,61 @@ dependencies — the god pulls chromadb/torch, the engine pulls fastapi).
   ```sh
   ollama pull llama3.2
   ```
+  (Or an OpenAI-compatible endpoint — see the flags below.)
 
 ## Quick start
 
-### 1. Generate a world (god agent)
-
-From the repo root:
+Install dependencies:
 
 ```sh
-uv run illuvutar create-world \
-    --palette palettes/verdant \
-    --world demo_world \
-    --model llama3.2
+uv sync
 ```
 
-This opens a TUI where you converse with the god. It indexes the palette into a RAG
-index, then writes `constitution.yaml`, `regions.yaml`, and a WFC-generated tilemap
-into the world directory. Sessions persist to `<world>/.god_memory.json`, so you can
-quit and resume.
-
-### 2. Run the simulation (engine)
+Launch the studio and open <http://127.0.0.1:8080>:
 
 ```sh
-cd engine
-uv run python3 -m engine ../demo_world --port 8080 --ai-model llama3.2
-# (equivalently: uv run illuvutar-engine ../demo_world --port 8080)
+uv run studio --palette palettes/verdant --world demo_world --port 8080
 ```
 
-Then open <http://localhost:8080> to watch the world tick. Entities think on an
-interval; their inner monologue streams into the thought feed.
+1. **Forge** — chat with the god to build a world. It indexes the palette into a RAG
+   index, then writes `constitution.yaml`, `regions.yaml`, a WFC-generated tilemap,
+   and the populace into the `--world` directory. Sessions persist to
+   `<world>/.god_memory.json`, so you can quit and resume.
+2. **▶ Play this world** — once the world has a constitution, palette, and tilemap,
+   the button starts the simulation and drops you into the renderer (served at `/sim`).
+   Entities think on an interval; their inner monologue streams into the thought feed.
+   Use the **◀ God** link to hop back to the Forge and keep editing; the world can be
+   reloaded to pick up god edits without restarting.
 
-### 3. Talk to the world (optional)
+### Options
 
-While the engine is running, start the god TUI with `--engine-url` to whisper to
-entities and read their thoughts:
-
-```sh
-uv run illuvutar create-world --palette palettes/verdant --world demo_world \
-    --engine-url http://localhost:8080
-```
-
-- `/whisper <entity_id> <message>` — plant a message an entity hears on its next think
-- `/thoughts` — pull the most recent entity thoughts from the engine
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--palette` | *(required)* | Directory of tile/sprite images the god draws from |
+| `--world` | `world` | World directory to build into / play from |
+| `--model` | `llama3.2` | Model the god agent uses to build the world |
+| `--ai-model` | `llama3.2` | Model for in-sim entity thinking |
+| `--llm-endpoint` | *(none)* | OpenAI-compatible base URL (instead of local Ollama) |
+| `--llm-api-key` | *(none)* | API key for the endpoint above |
+| `--port` | `8080` | Port to serve on |
 
 ## A note on performance
 
-The god agent and every entity in the engine share **one** Ollama runner. If you run
-both at once on a CPU-only machine, the god's responses will be slow because they
-queue behind the engine's entity-think flood. For a responsive god, use a GPU, raise
-`OLLAMA_NUM_PARALLEL`, or generate the world *before* starting the engine.
+The god agent and every entity in the engine share **one** Ollama runner. If you
+build and play on the same CPU-only machine, the god's responses slow down because
+they queue behind the engine's entity-think flood. For a responsive god, use a GPU,
+raise `OLLAMA_NUM_PARALLEL`, or finish building the world before you press Play.
 
 ## Testing
 
-Each project is tested independently:
-
 ```sh
-uv run pytest                # world generation + TUI (from repo root)
-cd engine && uv run pytest   # engine, physics, server
+uv run pytest
 ```
+
+Runs the god, engine, and studio suites together.
 
 ## Design docs
 
-See `docs/superpowers/specs/` and `docs/superpowers/plans/` for the world-generation
-and engine designs.
+See `docs/superpowers/specs/` and `docs/superpowers/plans/`. Note that
+`specs/2026-07-11-planes-timeline-power-design.md` is a forward-looking spec and is
+not yet implemented.
