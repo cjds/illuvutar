@@ -71,3 +71,39 @@ def test_stop_flushes_entity_state_to_disk(tmp_path):
     assert saved["memory"] == "I saw a stranger"
     assert saved["facts"] == "I distrust strangers"
     assert saved["goal"] == "guard"
+
+
+def _loop(tmp_path=None):
+    from engine.entities.store import EntityStore
+    from engine.physics.passability import PassabilityMap
+    store = EntityStore()
+    pass_ = PassabilityMap(tilemap=[["g"] * 3 for _ in range(3)], rules={"g": "open"})
+    async def noop(_f): return None
+    return TickLoop(store=store, passability=pass_, palette={0: "g"}, tilemap_data=[],
+                    world_id="w", width=3, height=3, frame_callback=noop, tick_interval=0.01)
+
+
+def test_pause_resume_toggles_flag():
+    lp = _loop()
+    assert lp.paused is False
+    lp.pause(); assert lp.paused is True
+    lp.resume(); assert lp.paused is False
+
+
+@pytest.mark.asyncio
+async def test_paused_loop_does_not_tick():
+    lp = _loop()
+    calls = {"n": 0}
+    async def counting_tick():
+        calls["n"] += 1
+    lp._tick_once = counting_tick
+    lp.pause()
+    task = asyncio.create_task(lp.start())
+    await asyncio.sleep(0.05)          # several intervals
+    paused_count = calls["n"]
+    lp.resume()
+    await asyncio.sleep(0.05)
+    lp.stop()
+    await asyncio.sleep(0.02)
+    assert paused_count == 0           # no ticks while paused
+    assert calls["n"] > 0              # ticked after resume

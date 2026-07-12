@@ -33,6 +33,7 @@ class TickLoop:
         self._tick_interval = tick_interval
         self._frame_callback = frame_callback
         self._running = False
+        self._paused = False
         self._command_queue: list[Command] = []
         self._tick = 0
 
@@ -50,6 +51,20 @@ class TickLoop:
         self._whispers: dict[str, list[str]] = {}
         self._thought_log: list[dict] = []
 
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
+    @property
+    def tick(self) -> int:
+        return self._tick
+
+    def pause(self) -> None:
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
+
     def enqueue_command(self, command: Command) -> None:
         self._command_queue.append(command)
 
@@ -66,7 +81,8 @@ class TickLoop:
     async def start(self) -> None:
         self._running = True
         while self._running:
-            await self._tick_once()
+            if not self._paused:
+                await self._tick_once()
             await asyncio.sleep(self._tick_interval)
 
     async def _tick_once(self) -> None:

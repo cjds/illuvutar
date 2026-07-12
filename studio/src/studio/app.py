@@ -59,6 +59,16 @@ def create_studio_app(session, world_dir=None, palette_dir=None, ai_model="llama
         sim.start()
         return {"ready": True, "missing": []}
 
+    @app.post("/sim/reload")
+    async def sim_reload():
+        if sim is None:
+            return {"ready": False, "missing": ["world"]}
+        missing = sim.missing()
+        if missing:
+            return {"ready": False, "missing": missing}
+        sim.reload()
+        return {"ready": True, "missing": []}
+
     if WEB_DIR.is_dir():
         app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
 

@@ -54,3 +54,30 @@ async def test_sim_start_is_idempotent(tmp_path, monkeypatch):
     assert holder.start() is True
     assert holder.start() is True          # second Play
     assert len(calls) == 1                 # built once, no second (leaked) loop
+
+
+@pytest.mark.asyncio
+async def test_sim_reload_rebuilds_and_stops_old(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock, AsyncMock
+    import studio.sim as sim_mod
+    (tmp_path / "constitution.yaml").write_text("world_name: t")
+    (tmp_path / "palette.yaml").write_text("tiles: []")
+    (tmp_path / "tilemap.json").write_text("[]")
+    built = []
+    def fake_create_app(**kw):
+        app = MagicMock(); app.state.tick_loop.start = AsyncMock(); built.append(app); return app
+    monkeypatch.setattr(sim_mod, "load_world", lambda wd: MagicMock())
+    monkeypatch.setattr(sim_mod, "create_app", fake_create_app)
+    holder = sim_mod.SimHolder(tmp_path)
+    assert holder.start() is True
+    first = built[0]
+    assert holder.reload() is True
+    assert len(built) == 2                       # rebuilt
+    first.state.tick_loop.stop.assert_called_once()   # old loop stopped
+
+
+def test_sim_reload_needs_tilemap(tmp_path, fake_session):
+    from studio.app import create_studio_app
+    c = TestClient(create_studio_app(fake_session, world_dir=tmp_path))
+    r = c.post("/sim/reload")
+    assert r.status_code == 200 and r.json()["ready"] is False

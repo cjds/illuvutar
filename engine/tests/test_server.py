@@ -70,3 +70,10 @@ def test_frames_endpoint_exists():
             assert "text/event-stream" in r.headers["content-type"]
             lines = list(r.iter_lines())
             assert any(line.startswith("data:") for line in lines)
+
+
+def test_pause_resume_status(client):
+    assert client.post("/pause").json() == {"paused": True}
+    assert client.get("/status").json()["paused"] is True
+    assert client.post("/resume").json() == {"paused": False}
+    assert client.get("/status").json()["paused"] is False
