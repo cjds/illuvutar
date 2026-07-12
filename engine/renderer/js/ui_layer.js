@@ -51,6 +51,30 @@ export function setupUI() {
     searchQuery = e.target.value.toLowerCase();
     renderHistoryList();
   });
+
+  // World HUD controls: Pause/Resume (always), God + Reload (studio-only)
+  const BASE = window.__BASE__ || "";
+  const pauseBtn = document.getElementById('pause-btn');
+  let paused = false;
+  function renderPause() { pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause'; }
+  fetch(BASE + '/status').then(r => r.json()).then(s => { paused = !!s.paused; renderPause(); }).catch(() => {});
+  pauseBtn?.addEventListener('click', async () => {
+    const path = paused ? '/resume' : '/pause';
+    const r = await fetch(BASE + path, { method: 'POST' }).then(r => r.json()).catch(() => null);
+    if (r) { paused = r.paused; renderPause(); }
+  });
+  // studio-only controls: God link + Reload
+  if (BASE) {
+    const god = document.getElementById('god-link'); if (god) god.style.display = 'inline-block';
+    const reload = document.getElementById('reload-btn');
+    if (reload) {
+      reload.style.display = 'inline-block';
+      reload.addEventListener('click', async () => {
+        const r = await fetch('/sim/reload', { method: 'POST' }).then(r => r.json()).catch(() => null);
+        if (r && r.ready) location.reload();
+      });
+    }
+  }
 }
 
 // ── History modal ───────────────────────────────────────────────────────────
